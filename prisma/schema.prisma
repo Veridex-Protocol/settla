@@ -1,0 +1,465 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// NextAuth Models
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Relations
+  businessId    String?
+  business      Business? @relation(fields: [businessId], references: [id])
+  
+  // WebAuthn / Passkeys
+  authenticators Authenticator[]
+  
+  // Onboarding status
+  onboardingCompleted Boolean @default(false)
+  
+  // Gamification - Merchant Tiers
+  merchantTier   MerchantTier @default(BRONZE)
+  totalVolume    Decimal      @default(0)
+  tierUpdatedAt  DateTime?
+  
+  // Gamification - Points & Streaks
+  seraPoints      Int       @default(0)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastActiveDate  DateTime?
+  
+  // Referral System
+  referralCode        String?   @unique
+  referredBy          String?   // referralCode of the referrer
+  showOnLeaderboard   Boolean   @default(false)
+  
+  // Onboarding Progress (JSON for flexibility)
+  onboardingProgress  Json?
+  
+  // Settings
+  celebrationsEnabled Boolean   @default(true)
+  soundEnabled        Boolean   @default(false)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Gamification relations
+  achievements     Achievement[]
+  pointHistory     PointTransaction[]
+  referralsGiven   Referral[]    @relation("ReferralsGiven")
+  referralReceived Referral?     @relation("ReferralReceived")
+  goals            Goal[]
+  milestones       MilestoneAchievement[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  id                   String  @id @default(cuid())
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+  
+  // Veridex-specific fields for passkey recovery
+  publicKeyX           String?   // BigInt as hex string
+  publicKeyY           String?   // BigInt as hex string  
+  keyHash              String?   // Derived vault address
+  name                 String?   // User-friendly name for the passkey
+  createdAt            DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Business Logic Models
+
+model Business {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  walletAddress   String?
+  branding        Json?     // logo, colors, etc.
+  kybStatus       String    @default("pending")
+  
+  // Business Profile Settings
+  taxId           String?   // Tax ID / EIN
+  website         String?
+  supportEmail    String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?   @default("US")
+  
+  // Regional Settings
+  defaultCurrency String    @default("USDC")
+  timezone        String    @default("utc")
+  
+  // Logo
+  logoUrl         String?
+  
+  // Invoice & Receipt Branding (Silver+ tier feature)
+  invoiceBranding   Json?   // Custom invoice styling config
+  receiptBranding   Json?   // Custom receipt styling config (Gold+ tier)
+  
+  // Milestone Rewards (earned through transaction/volume milestones)
+  feeDiscountPercent      Int?        @default(0)   // Percentage fee discount (0-100)
+  feeDiscountExpiresAt    DateTime?   // When fee discount expires (null = permanent)
+  isFeatured              Boolean     @default(false) // Featured merchant status
+  featuredLevel           Int?        @default(0)   // 1=Rising Star, 2=Superstar, 3=Elite
+  featuredExpiresAt       DateTime?   // When featured status expires (null = permanent)
+  hasPrioritySupport      Boolean     @default(false)
+  prioritySupportExpiresAt DateTime?  // When priority support expires
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  users           User[]
+  invoices        Invoice[]
+  paymentLinks    PaymentLink[]
+  transactions    Transaction[]
+  teamMembers     TeamMember[]
+  milestones      MilestoneAchievement[]
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  invoiceNumber   String
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id])
+  customerName    String
+  customerEmail   String?
+  amount          Decimal
+  currency        String    // USDC, EURC, XSGD
+  dueDate         DateTime?
+  status          String    @default("draft") // draft, sent, paid, settled, cancelled
+  items           Json      // line items
+  notes           String?
+  paymentLinkId   String?   @unique
+  paymentLink     PaymentLink? @relation(fields: [paymentLinkId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  transactions    Transaction[]
+}
+
+model PaymentLink {
+  id            String    @id @default(cuid())
+  shortCode     String    @unique
+  businessId    String
+  business      Business  @relation(fields: [businessId], references: [id])
+  invoiceId     String?
+  invoice       Invoice?
+  amount        Decimal
+  currency      String
+  expiresAt     DateTime?
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  status        String    @default("active")
+  createdAt     DateTime  @default(now())
+  
+  transactions  Transaction[]
+}
+
+model Transaction {
+  id              String    @id @default(cuid())
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id])
+  invoiceId       String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  paymentLinkId   String?
+  paymentLink     PaymentLink? @relation(fields: [paymentLinkId], references: [id])
+  type            String    // inflow, outflow
+  amount          Decimal
+  currency        String
+  txHash          String?
+  seraOrderId     String?
+  seraNftId       String?
+  status          String    // pending, confirmed, settled, failed
+  payerAddress    String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  receipts        Receipt[]
+}
+
+model Receipt {
+  id              String      @id @default(cuid())
+  transactionId   String
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+  receiptNumber   String      @unique
+  pdfUrl          String?
+  emailSent       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+}
+
+model TeamMember {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  email       String
+  name        String?
+  role        String    @default("member") // admin, finance, developer, member
+  status      String    @default("invited") // invited, active, inactive
+  invitedBy   String?
+  lastActive  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@unique([businessId, email])
+}
+
+// Notification System
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String    // Recipient user ID
+  businessId  String?   // Business context (optional)
+  
+  // Notification content
+  type        String    // payment_received, invoice_paid, invoice_created, team_invite, milestone, system, etc.
+  title       String
+  message     String
+  
+  // Action metadata (optional)
+  actionUrl   String?   // Deep link to relevant page
+  actionLabel String?   // Button text like "View Details"
+  
+  // Rich metadata (stored as JSON)
+  metadata    Json?     // Additional context: amount, currency, invoiceId, etc.
+  
+  // Delivery tracking
+  read        Boolean   @default(false)
+  readAt      DateTime?
+  dismissed   Boolean   @default(false)
+  
+  // Email notification
+  emailSent   Boolean   @default(false)
+  emailSentAt DateTime?
+  
+  // Push notification (future)
+  pushSent    Boolean   @default(false)
+  pushSentAt  DateTime?
+  
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime? // Optional expiry for time-sensitive notifications
+  
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([businessId])
+}
+
+// Notification Preferences (per user)
+model NotificationPreferences {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  
+  // In-app notifications
+  inAppEnabled Boolean  @default(true)
+  
+  // Email notifications
+  emailEnabled Boolean  @default(true)
+  
+  // Notification types (which events trigger notifications)
+  // Payments & Transactions
+  paymentReceived       Boolean @default(true)
+  paymentFailed         Boolean @default(true)
+  largePaymentThreshold Decimal? @default(1000) // Notify on payments above this amount
+  
+  // Invoices
+  invoicePaid           Boolean @default(true)
+  invoiceOverdue        Boolean @default(true)
+  invoiceReminders      Boolean @default(true)
+  
+  // Payment Links
+  paymentLinkUsed       Boolean @default(true)
+  paymentLinkExpired    Boolean @default(false)
+  
+  // Team
+  teamMemberJoined      Boolean @default(true)
+  teamMemberLeft        Boolean @default(true)
+  
+  // System & Security
+  securityAlerts        Boolean @default(true)
+  systemUpdates         Boolean @default(true)
+  
+  // Marketing & Tips (optional)
+  weeklyDigest          Boolean @default(true)
+  productUpdates        Boolean @default(true)
+  tips                  Boolean @default(true)
+  
+  // Digest frequency
+  digestFrequency       String  @default("weekly") // daily, weekly, monthly, never
+  
+  // Quiet hours (don't send push during these times)
+  quietHoursStart       String? // "22:00"
+  quietHoursEnd         String? // "08:00"
+  quietHoursTimezone    String  @default("UTC")
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ==========================================
+// GAMIFICATION MODELS
+// ==========================================
+
+
+enum MerchantTier {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+enum AchievementType {
+  FIRST_SALE            // First payment received
+  EARLY_ADOPTER         // Signed up before launch date
+  RELIABLE_REVENUE      // 30 consecutive days with payments
+  SPEED_DEMON           // Invoice paid within 1 hour
+  TEAM_PLAYER           // Invited 3+ team members
+  GLOBAL_MERCHANT       // Payments from 5+ countries
+  CRYPTO_NATIVE         // 10+ different tokens received
+  CENTURY_CLUB          // 100 transactions milestone
+  VOLUME_BRONZE         // $5k total volume
+  VOLUME_SILVER         // $25k total volume
+  VOLUME_GOLD           // $100k total volume
+  VOLUME_DIAMOND        // $500k total volume
+  STREAK_WEEKLY         // 7-day login streak
+  STREAK_MONTHLY        // 30-day login streak
+  REFERRAL_CHAMPION     // 10+ successful referrals
+}
+
+model Achievement {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        AchievementType
+  earnedAt    DateTime        @default(now())
+  metadata    Json?           // Additional context (e.g., streak count, volume milestone)
+  
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model PointTransaction {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int       // Positive for earned, negative for spent
+  reason      String    // "first_invoice", "referral", "streak_bonus", "redeemed_fee_credit"
+  metadata    Json?     // Additional context
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Referral {
+  id            String    @id @default(cuid())
+  referrerId    String
+  referrer      User      @relation("ReferralsGiven", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId     String    @unique
+  referee       User      @relation("ReferralReceived", fields: [refereeId], references: [id], onDelete: Cascade)
+  
+  status        String    @default("pending") // pending, converted, rewarded
+  referrerReward  Decimal?  // Amount credited to referrer
+  refereeReward   Decimal?  // Amount credited to referee
+  
+  convertedAt   DateTime? // When referee made first payment
+  rewardedAt    DateTime? // When rewards were credited
+  createdAt     DateTime  @default(now())
+  
+  @@index([referrerId])
+}
+
+model Goal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          String    // revenue, invoices, payment_links, team
+  title         String    // "October Revenue Goal"
+  targetValue   Decimal
+  currentValue  Decimal   @default(0)
+  deadline      DateTime
+  
+  achieved      Boolean   @default(false)
+  achievedAt    DateTime?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([deadline])
+}
+
+model MilestoneAchievement {
+  id            String    @id @default(cuid())
+  milestoneId   String    // References MILESTONES constant (e.g., "tx_100_fee_discount")
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId    String
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  // Reward details
+  rewardType    String    // fee_discount, featured_merchant, priority_support, custom_branding
+  rewardValue   Int       // Value/level of reward (e.g., 5 for 5% discount)
+  expiresAt     DateTime? // When the reward expires (null = permanent)
+  
+  // Metadata
+  metadata      Json?     // Additional context (milestone name, description)
+  
+  achievedAt    DateTime  @default(now())
+  
+  @@unique([milestoneId, userId])
+  @@index([userId])
+  @@index([businessId])
+}
