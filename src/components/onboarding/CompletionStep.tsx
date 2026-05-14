@@ -44,7 +44,7 @@ export function CompletionStep() {
                 }}
                 className="relative mb-8"
             >
-                <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-2xl shadow-violet-500/40">
+                <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-600 to-cyan-600 shadow-2xl shadow-emerald-500/40">
                     <PartyPopper className="h-14 w-14 text-white" />
                 </div>
 
@@ -63,7 +63,7 @@ export function CompletionStep() {
                     transition={{ delay: 0.7 }}
                     className="absolute -bottom-1 -left-3"
                 >
-                    <Sparkles className="h-6 w-6 text-violet-400" />
+                    <Sparkles className="h-6 w-6 text-emerald-400" />
                 </motion.div>
             </motion.div>
 
@@ -101,16 +101,16 @@ export function CompletionStep() {
                         transition={{ delay: 0.7 + index * 0.1 }}
                         className="flex items-center gap-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 transition-colors cursor-pointer group"
                     >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 group-hover:bg-violet-500/20 transition-colors">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
                             <step.icon className="h-6 w-6" />
                         </div>
                         <div className="flex-1">
-                            <h4 className="font-medium text-white group-hover:text-violet-300 transition-colors">
+                            <h4 className="font-medium text-white group-hover:text-emerald-300 transition-colors">
                                 {step.title}
                             </h4>
                             <p className="text-sm text-slate-400">{step.description}</p>
                         </div>
-                        <ArrowRight className="h-5 w-5 text-slate-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="h-5 w-5 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
                     </motion.div>
                 ))}
             </motion.div>

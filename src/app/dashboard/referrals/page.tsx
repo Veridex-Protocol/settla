@@ -197,8 +197,8 @@ export default function ReferralPage() {
                     {data?.stats?.signups || 0}
                   </p>
                 </div>
-                <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-purple-400" />
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-emerald-400" />
                 </div>
               </div>
             </CardContent>
@@ -325,7 +325,7 @@ export default function ReferralPage() {
         <Card variant="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">New</Badge>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">New</Badge>
               Digital Referral Card
             </CardTitle>
             <CardDescription>
@@ -379,8 +379,8 @@ export default function ReferralPage() {
                 </p>
               </div>
               <div className="flex flex-col items-center text-center p-4">
-                <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-3">
-                  <Users className="h-6 w-6 text-purple-400" />
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <Users className="h-6 w-6 text-emerald-400" />
                 </div>
                 <h4 className="font-medium text-white mb-1">2. They Sign Up</h4>
                 <p className="text-sm text-zinc-400">
@@ -404,7 +404,7 @@ export default function ReferralPage() {
         <Card variant="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-purple-400" />
+              <Users className="h-5 w-5 text-emerald-400" />
               Referral History
             </CardTitle>
             <CardDescription>

@@ -111,14 +111,12 @@ export async function registerPasskey(
   hubAddress: string;
   keyHash: string;
   credentialId: string;
+  registrationToken: string | null;
 }> {
   const sdk = await getVeridexSDK();
 
   // Register passkey using WebAuthn (via Base hub)
   const credential = await sdk.passkey.register(username, displayName || username);
-
-  // Sync the new credential to our backend for recovery/multi-device support
-  await syncCredentialToBackend(credential);
 
   // Get the Base hub vault address (for authentication)
   const hubAddress = sdk.getVaultAddress();
@@ -126,11 +124,20 @@ export async function registerPasskey(
   // Compute the Ethereum Sepolia vault address (for Sera transactions)
   const vaultAddress = await computeEthSepoliaVaultAddress(credential.keyHash);
 
+  // Sync the new credential to our backend (creates User+Business+Authenticator
+  // rows and returns a one-time registration token that the caller hands to
+  // NextAuth's credentials provider to obtain a session).
+  const registrationToken = await syncCredentialToBackend(credential, {
+    walletAddress: vaultAddress,
+    username,
+  });
+
   return {
     address: vaultAddress, // Ethereum Sepolia address for Sera
     hubAddress, // Base address for reference
     keyHash: credential.keyHash,
     credentialId: credential.credentialId,
+    registrationToken,
   };
 }
 
@@ -799,9 +806,14 @@ export async function restoreSDKCredential(): Promise<boolean> {
 
 /**
  * Sync the newly created credential to BOTH the dashboard backend AND the relayer
- * This ensures credentials can be recovered from either source
+ * This ensures credentials can be recovered from either source. Returns the
+ * one-time registration token issued by the dashboard, which the caller can
+ * use to mint a NextAuth session without a second WebAuthn prompt.
  */
-async function syncCredentialToBackend(credential: any): Promise<void> {
+async function syncCredentialToBackend(
+  credential: any,
+  context: { walletAddress: string; username: string },
+): Promise<string | null> {
   const publicKeyX = credential.publicKeyX.toString();
   const publicKeyY = credential.publicKeyY.toString();
   const keyHash = credential.keyHash;
@@ -817,28 +829,32 @@ async function syncCredentialToBackend(credential: any): Promise<void> {
     console.warn('[veridex-client] Failed to mirror credential to secure store:', e);
   }
 
-  // 1. Sync to dashboard's backend (for authenticated session management)
-  // Note: This will return 401 if user isn't logged in yet - that's expected
-  // The relayer sync below is the primary backup mechanism
+  // 1. Sync to the dashboard. POST /api/auth/register provisions the
+  //    Business+User+Authenticator rows and returns a single-use
+  //    registration token used to mint a NextAuth session.
+  let registrationToken: string | null = null;
   try {
-    const response = await fetch('/api/auth/credentials', {
+    const response = await fetch('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         credentialId,
         publicKeyX,
         publicKeyY,
         keyHash,
+        walletAddress: context.walletAddress,
+        username: context.username,
       }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
     if (response.ok) {
+      const data = await response.json();
+      registrationToken = data?.registrationToken ?? null;
       console.log('Credential synced to dashboard backend');
+    } else {
+      console.warn('Dashboard register endpoint returned', response.status);
     }
-    // 401 is expected if not authenticated - silently continue
-  } catch {
-    // Network error - silently continue, relayer sync is the primary backup
+  } catch (err) {
+    console.error('Failed to register credential with dashboard:', err);
   }
 
   // 2. Sync to relayer (for cross-device/pre-auth recovery)
@@ -861,6 +877,8 @@ async function syncCredentialToBackend(credential: any): Promise<void> {
       console.error('Failed to sync credential to relayer:', error);
     }
   }
+
+  return registrationToken;
 }
 
 /**

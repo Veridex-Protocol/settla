@@ -190,7 +190,7 @@ const RARITY_COLORS = {
   common: "border-zinc-600 bg-zinc-800/50",
   uncommon: "border-green-600 bg-green-900/20",
   rare: "border-blue-600 bg-blue-900/20",
-  epic: "border-purple-600 bg-purple-900/20",
+  epic: "border-emerald-600 bg-emerald-900/20",
   legendary: "border-yellow-500 bg-yellow-900/20 animate-pulse",
 };
 
@@ -198,7 +198,7 @@ const RARITY_LABELS = {
   common: { text: "Common", color: "text-zinc-400" },
   uncommon: { text: "Uncommon", color: "text-green-400" },
   rare: { text: "Rare", color: "text-blue-400" },
-  epic: { text: "Epic", color: "text-purple-400" },
+  epic: { text: "Epic", color: "text-emerald-400" },
   legendary: { text: "Legendary", color: "text-yellow-400" },
 };
 
@@ -318,8 +318,8 @@ export default function AchievementsPage() {
                     {data?.totalPoints.toLocaleString() || 0}
                   </p>
                 </div>
-                <div className="h-16 w-16 rounded-2xl bg-purple-500/10 flex items-center justify-center">
-                  <Star className="h-8 w-8 text-purple-400" />
+                <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                  <Star className="h-8 w-8 text-emerald-400" />
                 </div>
               </div>
               <p className="text-sm text-zinc-400">
@@ -477,7 +477,7 @@ export default function AchievementsPage() {
                     rarity === "common" ? "bg-zinc-500" :
                     rarity === "uncommon" ? "bg-green-500" :
                     rarity === "rare" ? "bg-blue-500" :
-                    rarity === "epic" ? "bg-purple-500" :
+                    rarity === "epic" ? "bg-emerald-500" :
                     "bg-yellow-500"
                   }`} />
                   <span className={`text-sm ${color}`}>{text}</span>

@@ -249,8 +249,8 @@ export function WalletSection() {
         {/* Wallet Address */}
         <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-              <Wallet className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+              <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-sm text-slate-500">Your Wallet Address</p>
@@ -459,7 +459,7 @@ export function WalletSection() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
             </div>
           ) : walletData?.tokens && walletData.tokens.length > 0 ? (
             <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2">

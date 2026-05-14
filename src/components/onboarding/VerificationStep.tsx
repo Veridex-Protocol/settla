@@ -84,7 +84,7 @@ export function VerificationStep({
                         className={cn(
                             "p-4 rounded-xl border-2 transition-all duration-200 text-left",
                             data.businessType === 'individual'
-                                ? "border-violet-500 bg-violet-500/10"
+                                ? "border-emerald-500 bg-emerald-500/10"
                                 : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                         )}
                         whileHover={{ scale: 1.02 }}
@@ -92,7 +92,7 @@ export function VerificationStep({
                     >
                         <User className={cn(
                             "h-8 w-8 mb-2",
-                            data.businessType === 'individual' ? "text-violet-400" : "text-slate-500"
+                            data.businessType === 'individual' ? "text-emerald-400" : "text-slate-500"
                         )} />
                         <h4 className={cn(
                             "font-medium",
@@ -111,7 +111,7 @@ export function VerificationStep({
                         className={cn(
                             "p-4 rounded-xl border-2 transition-all duration-200 text-left",
                             data.businessType === 'company'
-                                ? "border-violet-500 bg-violet-500/10"
+                                ? "border-emerald-500 bg-emerald-500/10"
                                 : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                         )}
                         whileHover={{ scale: 1.02 }}
@@ -119,7 +119,7 @@ export function VerificationStep({
                     >
                         <Building className={cn(
                             "h-8 w-8 mb-2",
-                            data.businessType === 'company' ? "text-violet-400" : "text-slate-500"
+                            data.businessType === 'company' ? "text-emerald-400" : "text-slate-500"
                         )} />
                         <h4 className={cn(
                             "font-medium",
@@ -144,7 +144,7 @@ export function VerificationStep({
                         value={data.country}
                         onValueChange={(value) => updateData({ country: value })}
                     >
-                        <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-violet-500 focus:ring-violet-500/20">
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-emerald-500 focus:ring-emerald-500/20">
                             <SelectValue placeholder="Select country" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-800 border-slate-700">
@@ -186,7 +186,7 @@ export function VerificationStep({
                         value={data.taxId}
                         onChange={(e) => updateData({ taxId: e.target.value })}
                         placeholder={data.businessType === 'individual' ? "Optional" : "e.g., 12-3456789"}
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20"
+                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                 </div>
             </div>

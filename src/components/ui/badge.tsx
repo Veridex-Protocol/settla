@@ -22,7 +22,7 @@ const badgeVariants = cva(
         info:
           "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
         violet:
-          "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
+          "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
         outline:
           "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-300",
       },
@@ -50,7 +50,7 @@ function Badge({ className, variant, dot, children, ...props }: BadgeProps) {
             variant === "warning" && "bg-amber-500",
             variant === "destructive" && "bg-red-500",
             variant === "info" && "bg-blue-500",
-            variant === "violet" && "bg-violet-500",
+            variant === "violet" && "bg-emerald-500",
             (!variant || variant === "default" || variant === "secondary" || variant === "outline") &&
             "bg-slate-500"
           )}

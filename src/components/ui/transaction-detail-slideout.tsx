@@ -308,7 +308,7 @@ export function TransactionDetailSlideout({ transaction, isOpen, onClose }: Tran
                   href={`/dashboard/payment-links`}
                   className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 hover:bg-zinc-700/50 transition-colors group"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                     <Link2 className="h-5 w-5" />
                   </div>
                   <div className="flex-1">

@@ -144,7 +144,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
               <button
                 onClick={handlePasskeyConnect}
                 disabled={isConnecting || !passkeySupported}
-                className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg"
+                className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-cyan-500 to-emerald-600 hover:from-cyan-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg"
               >
                 <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                   {isConnecting ? (
@@ -226,7 +226,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
                 New to Veridex?{' '}
                 <button
                   onClick={() => setMode('register')}
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                  className="text-cyan-600 dark:text-cyan-400 hover:underline font-medium"
                 >
                   Create a passkey
                 </button>
@@ -246,7 +246,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="alice"
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
                     disabled={isConnecting}
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -257,7 +257,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
                 <button
                   onClick={handlePasskeyRegister}
                   disabled={isConnecting || !passkeySupported || !username.trim()}
-                  className="w-full flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg font-semibold"
+                  className="w-full flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-cyan-500 to-emerald-600 hover:from-cyan-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg font-semibold"
                 >
                   {isConnecting ? (
                     <>
@@ -278,7 +278,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
                 Already have a passkey?{' '}
                 <button
                   onClick={() => setMode('connect')}
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                  className="text-cyan-600 dark:text-cyan-400 hover:underline font-medium"
                 >
                   Sign in
                 </button>
@@ -290,7 +290,7 @@ export function ConnectWallet({ onSuccess, onError, variant = 'default' }: Conne
         {/* Footer */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
           <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-            Powered by <span className="font-semibold text-indigo-600 dark:text-indigo-400">Veridex Protocol</span>
+            Powered by <span className="font-semibold text-cyan-600 dark:text-cyan-400">Veridex Protocol</span>
           </p>
         </div>
       </div>

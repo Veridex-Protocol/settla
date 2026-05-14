@@ -269,7 +269,7 @@ export function NotificationSettings() {
                     />
                     <SettingRow
                         icon={Mail}
-                        iconColor="text-purple-400"
+                        iconColor="text-emerald-400"
                         title="Email Notifications"
                         description="Receive notifications via email"
                         enabled={preferences.emailEnabled}
@@ -366,7 +366,7 @@ export function NotificationSettings() {
             <Card variant="glass">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Link2 className="h-5 w-5 text-purple-400" />
+                        <Link2 className="h-5 w-5 text-emerald-400" />
                         Payment Links
                     </CardTitle>
                     <CardDescription>
@@ -469,7 +469,7 @@ export function NotificationSettings() {
                 <CardContent>
                     <SettingRow
                         icon={Mail}
-                        iconColor="text-purple-400"
+                        iconColor="text-emerald-400"
                         title="Weekly Digest"
                         description="Summary of your business activity"
                         enabled={preferences.weeklyDigest}

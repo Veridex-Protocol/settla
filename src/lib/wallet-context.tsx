@@ -21,6 +21,7 @@ import {
   connectWalletConnect,
   disconnectWalletConnect,
   signMessageWithWalletConnect,
+  signTypedDataWithWalletConnect,
   sendTransactionWithWalletConnect,
   onWalletConnectAccountsChanged,
   onWalletConnectChainChanged,
@@ -33,10 +34,12 @@ import {
   hasInjectedWallet,
   detectInjectedWallets,
   signMessageWithInjectedWallet,
+  signTypedDataWithInjectedWallet,
   onAccountsChanged,
   onChainChanged,
   switchToSepolia,
 } from './injected-wallet';
+import type { TypedDataDomain, TypedDataField } from 'ethers';
 
 // Wallet connection methods
 type ConnectionMethod = 'injected' | 'walletconnect' | 'passkey';
@@ -69,14 +72,30 @@ interface WebAuthnSignature {
 interface WalletContextType extends WalletState {
   // Connection methods
   connect: (method: ConnectionMethod) => Promise<void>;
-  connectPasskey: (mode: PasskeyMode, username?: string) => Promise<void>;
+  connectPasskey: (
+    mode: PasskeyMode,
+    username?: string,
+  ) => Promise<{
+    address: string;
+    credentialId: string;
+    registrationToken: string | null;
+  }>;
   disconnect: () => void;
+  // Switch connection method WITHOUT clearing NextAuth session or stored passkey
+  // credential — used when a user wants to pay with a different wallet without
+  // logging out of their account.
+  switchWallet: (method: ConnectionMethod) => Promise<void>;
 
   // Passkey-specific methods (deprecated - use connectPasskey instead)
   registerNewPasskey: (username: string, displayName?: string) => Promise<void>;
 
   // Signing
   signMessage: (message: string) => Promise<string>;
+  signTypedData: (
+    domain: TypedDataDomain,
+    types: Record<string, TypedDataField[]>,
+    message: Record<string, unknown>,
+  ) => Promise<string>;
 
   // Payments (Apple Pay-style one-tap experience)
   preparePayment: (to: string, amount: string, token?: string) => Promise<{
@@ -400,6 +419,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           credentialId: result.credentialId,
           hasStoredPasskey: true,
         });
+
+        return {
+          address: result.address,
+          credentialId: result.credentialId,
+          registrationToken: result.registrationToken,
+        };
       } else {
         // Authenticate with existing passkey
         const result = await authenticateWithPasskey();
@@ -421,6 +446,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           credentialId: result.credentialId,
           hasStoredPasskey: true,
         });
+
+        return {
+          address: result.address,
+          credentialId: result.credentialId,
+          registrationToken: null,
+        };
       }
     } catch (error) {
       console.error('Passkey connection failed:', error);
@@ -485,6 +516,70 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     throw new Error('Signing not supported for this connection method');
   }, [state.isConnected, state.connectionMethod]);
+
+  const signTypedData = useCallback(async (
+    domain: TypedDataDomain,
+    types: Record<string, TypedDataField[]>,
+    message: Record<string, unknown>,
+  ): Promise<string> => {
+    if (!state.isConnected) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (state.connectionMethod === 'injected') {
+      return signTypedDataWithInjectedWallet(domain, types, message);
+    }
+
+    if (state.connectionMethod === 'walletconnect') {
+      return signTypedDataWithWalletConnect(domain, types, message);
+    }
+
+    if (state.connectionMethod === 'passkey') {
+      // Passkey credentials produce WebAuthn (P-256) signatures and cannot be
+      // recovered to an EOA address — Sera Intent / EIP-2612 permits both need
+      // an EIP-712 EOA signature. Surface a clear error so the UI can prompt
+      // the user to switch wallets without logging them out.
+      throw new Error(
+        'Passkey wallets do not support EIP-712 typed-data signing. ' +
+          'Switch to an injected or WalletConnect wallet to use this feature.',
+      );
+    }
+
+    throw new Error('Typed-data signing not supported for this connection method');
+  }, [state.isConnected, state.connectionMethod]);
+
+  // Switch the active wallet without clearing the NextAuth session or the
+  // stored passkey credential. Used when a passkey-authenticated user wants to
+  // pay a link with a different wallet for this transaction only.
+  const switchWallet = useCallback(async (method: ConnectionMethod) => {
+    // Tear down active WalletConnect provider/listeners (if any). Leave the
+    // stored credential blob and NextAuth session untouched.
+    if (walletConnectSessionRef.current) {
+      try {
+        await disconnectWalletConnect();
+      } catch (e) {
+        console.warn('[switchWallet] disconnectWalletConnect failed', e);
+      }
+      walletConnectSessionRef.current = null;
+    }
+    wcUnsubscribersRef.current.forEach(unsub => unsub());
+    wcUnsubscribersRef.current = [];
+
+    // Reset in-memory wallet state but preserve passkey discoverability so the
+    // user can switch back without re-registering.
+    safeSetState(prev => ({
+      ...prev,
+      address: null,
+      hubAddress: null,
+      isConnected: false,
+      isConnecting: false,
+      chainId: null,
+      balance: null,
+      connectionMethod: null,
+    }));
+
+    await connect(method);
+  }, [safeSetState, connect]);
 
   const preparePayment = useCallback(async (
     to: string,
@@ -743,8 +838,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connect,
       connectPasskey,
       disconnect,
+      switchWallet,
       registerNewPasskey,
       signMessage,
+      signTypedData,
       preparePayment,
       confirmPayment,
       refreshBalance,

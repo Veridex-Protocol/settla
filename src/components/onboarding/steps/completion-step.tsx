@@ -87,7 +87,7 @@ export function CompletionStep({ data }: CompletionStepProps) {
       icon: FileText,
       title: "Create Your First Invoice",
       description: "Send a professional invoice to your first customer",
-      color: "text-indigo-500",
+      color: "text-cyan-500",
     },
     {
       icon: CreditCard,
@@ -191,7 +191,7 @@ export function CompletionStep({ data }: CompletionStepProps) {
       <div className="space-y-4 pt-4">
         <Button
           size="lg"
-          className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 px-8 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-600 hover:to-purple-700"
+          className="gap-2 bg-gradient-to-r from-cyan-500 to-emerald-600 px-8 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-600 hover:to-emerald-700"
           onClick={handleGoToDashboard}
           disabled={isRedirecting}
         >

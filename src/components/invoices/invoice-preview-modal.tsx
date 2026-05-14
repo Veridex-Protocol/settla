@@ -63,8 +63,8 @@ export function InvoicePreviewModal({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-lg px-6 py-4 dark:border-slate-700 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/30">
+              <FileText className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -279,11 +279,11 @@ export function InvoicePreviewModal({
 
           {/* Payment Info */}
           <Separator className="my-6" />
-          <div className="rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 p-4 dark:from-indigo-900/20 dark:to-purple-900/20">
-            <h4 className="mb-2 text-sm font-medium text-indigo-900 dark:text-indigo-300">
+          <div className="rounded-lg bg-gradient-to-br from-cyan-50 to-emerald-50 p-4 dark:from-cyan-900/20 dark:to-emerald-900/20">
+            <h4 className="mb-2 text-sm font-medium text-cyan-900 dark:text-cyan-300">
               Payment Instructions
             </h4>
-            <p className="text-sm text-indigo-700 dark:text-indigo-400">
+            <p className="text-sm text-cyan-700 dark:text-cyan-400">
               This invoice will be payable in <strong>{invoiceData.currency}</strong> via 
               the Sera Protocol. Customer will receive a secure payment link with 
               WalletConnect and Passkey options.

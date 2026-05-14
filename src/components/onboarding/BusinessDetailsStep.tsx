@@ -101,7 +101,7 @@ export function BusinessDetailsStep({ data, updateData, onNext }: BusinessDetail
                             value={data.name}
                             onChange={(e) => updateData({ name: e.target.value })}
                             placeholder="Acme Corporation"
-                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20"
+                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                         />
                     </FormField>
                 </motion.div>
@@ -122,7 +122,7 @@ export function BusinessDetailsStep({ data, updateData, onNext }: BusinessDetail
                             value={data.email}
                             onChange={(e) => updateData({ email: e.target.value })}
                             placeholder="payments@acme.com"
-                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20"
+                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                         />
                     </FormField>
                 </motion.div>
@@ -141,7 +141,7 @@ export function BusinessDetailsStep({ data, updateData, onNext }: BusinessDetail
                             value={data.industry}
                             onValueChange={(value) => updateData({ industry: value })}
                         >
-                            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-violet-500 focus:ring-violet-500/20">
+                            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-emerald-500 focus:ring-emerald-500/20">
                                 <SelectValue placeholder="Select industry" />
                             </SelectTrigger>
                             <SelectContent className="bg-slate-800 border-slate-700">
@@ -174,7 +174,7 @@ export function BusinessDetailsStep({ data, updateData, onNext }: BusinessDetail
                             value={data.website}
                             onChange={(e) => updateData({ website: e.target.value })}
                             placeholder="https://acme.com"
-                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-violet-500/20"
+                            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                         />
                     </FormField>
                 </motion.div>
@@ -185,9 +185,9 @@ export function BusinessDetailsStep({ data, updateData, onNext }: BusinessDetail
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20"
+                className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
             >
-                <h4 className="text-sm font-medium text-violet-400 mb-2">
+                <h4 className="text-sm font-medium text-emerald-400 mb-2">
                     💡 Quick Tips
                 </h4>
                 <ul className="text-sm text-slate-400 space-y-1">

@@ -117,7 +117,10 @@ export default function NewInvoicePage() {
     try {
       const response = await fetch("/api/invoices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "fetch",
+        },
         body: JSON.stringify({
           customerName: invoiceData.customerName,
           customerEmail: invoiceData.customerEmail,
@@ -375,8 +378,8 @@ export default function NewInvoicePage() {
                 <CardTitle className="text-lg">Invoice Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-violet-100 to-indigo-100 dark:from-violet-900/30 dark:to-indigo-900/30">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30">
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-900/30 dark:to-cyan-900/30">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-cyan-600 text-white shadow-lg shadow-emerald-500/30">
                     <FileText className="h-6 w-6" />
                   </div>
                   <div>

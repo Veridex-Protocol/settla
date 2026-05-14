@@ -156,7 +156,7 @@ export function getSettlementStatusColor(status: SettlementStatus): string {
     order_placed: 'bg-blue-100 text-blue-800',
     partially_filled: 'bg-orange-100 text-orange-800',
     filled: 'bg-green-100 text-green-800',
-    claiming: 'bg-purple-100 text-purple-800',
+    claiming: 'bg-emerald-100 text-emerald-800',
     settled: 'bg-emerald-100 text-emerald-800',
     failed: 'bg-red-100 text-red-800',
   };

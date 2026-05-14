@@ -194,7 +194,7 @@ export function BusinessDetailsStep({
             onChange={(e) => updateField('industry', e.target.value)}
             className={`
               w-full rounded-xl border bg-white px-4 py-3 text-slate-900 
-              shadow-sm transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20
+              shadow-sm transition-all focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20
               dark:border-slate-700 dark:bg-slate-800 dark:text-white
               ${errors.industry ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-300'}
             `}

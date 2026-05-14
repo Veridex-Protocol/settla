@@ -90,7 +90,7 @@ function MilestoneCard({ milestone, index }: { milestone: Milestone; index: numb
             case "priority_support":
                 return "text-blue-500";
             default:
-                return "text-purple-500";
+                return "text-emerald-500";
         }
     };
 
@@ -214,7 +214,7 @@ function ActiveRewardsBanner({ rewards }: { rewards: ActiveRewards }) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
         >
-            <Card className="border-gradient-to-r from-amber-500/30 to-purple-500/30 bg-gradient-to-r from-amber-500/5 to-purple-500/5">
+            <Card className="border-gradient-to-r from-amber-500/30 to-emerald-500/30 bg-gradient-to-r from-amber-500/5 to-emerald-500/5">
                 <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                         <Crown className="h-5 w-5 text-amber-500" />

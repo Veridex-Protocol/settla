@@ -343,7 +343,7 @@ export default function DashboardOverview() {
                 </span>
               )}
               {gamification?.points?.balance !== undefined && gamification.points.balance > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-xs font-medium text-purple-400">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400">
                   ⭐ {gamification.points.balance} pts
                 </span>
               )}
@@ -675,7 +675,7 @@ export default function DashboardOverview() {
                           : action.color === "cyan"
                             ? "bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white"
                             : action.color === "purple"
-                              ? "bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white"
+                              ? "bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white"
                               : "bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white"
                         }`}
                     >

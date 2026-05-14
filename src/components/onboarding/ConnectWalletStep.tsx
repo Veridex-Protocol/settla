@@ -75,7 +75,7 @@ export function ConnectWalletStep({ data, onConnect }: ConnectWalletStepProps) {
                             transition={{ delay: index * 0.1 }}
                             className="flex items-start gap-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50"
                         >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
                                 <feature.icon className="h-5 w-5" />
                             </div>
                             <div>
@@ -87,8 +87,8 @@ export function ConnectWalletStep({ data, onConnect }: ConnectWalletStepProps) {
                 </div>
 
                 {/* What is Passkey Tooltip */}
-                <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                    <h4 className="text-sm font-medium text-indigo-400 mb-1">
+                <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <h4 className="text-sm font-medium text-cyan-400 mb-1">
                         💡 What is a Passkey?
                     </h4>
                     <p className="text-sm text-slate-400">
@@ -126,8 +126,8 @@ export function ConnectWalletStep({ data, onConnect }: ConnectWalletStepProps) {
                         </div>
                     ) : (
                         <div className="text-center space-y-6">
-                            <div className="flex h-32 w-32 mx-auto items-center justify-center rounded-3xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 border-2 border-violet-500/30">
-                                <Fingerprint className="h-16 w-16 text-violet-400" />
+                            <div className="flex h-32 w-32 mx-auto items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-600/20 to-cyan-600/20 border-2 border-emerald-500/30">
+                                <Fingerprint className="h-16 w-16 text-emerald-400" />
                             </div>
 
                             <div>
@@ -145,9 +145,9 @@ export function ConnectWalletStep({ data, onConnect }: ConnectWalletStepProps) {
                                 disabled={isConnecting}
                                 className={cn(
                                     "w-full h-14 text-lg font-semibold rounded-xl transition-all duration-300",
-                                    "bg-gradient-to-r from-violet-600 to-indigo-600",
-                                    "hover:from-violet-500 hover:to-indigo-500",
-                                    "shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50",
+                                    "bg-gradient-to-r from-emerald-600 to-cyan-600",
+                                    "hover:from-emerald-500 hover:to-cyan-500",
+                                    "shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50",
                                     "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                             >
@@ -166,7 +166,7 @@ export function ConnectWalletStep({ data, onConnect }: ConnectWalletStepProps) {
 
                             <p className="text-xs text-slate-500">
                                 New to Veridex?{" "}
-                                <span className="text-violet-400 cursor-pointer hover:underline">
+                                <span className="text-emerald-400 cursor-pointer hover:underline">
                                     Create a wallet
                                 </span>
                             </p>

@@ -127,6 +127,20 @@ export async function signMessageWithWalletConnect(message: string): Promise<str
   return signer.signMessage(message);
 }
 
+export async function signTypedDataWithWalletConnect(
+  domain: ethers.TypedDataDomain,
+  types: Record<string, ethers.TypedDataField[]>,
+  message: Record<string, unknown>,
+): Promise<string> {
+  const signer = await getWalletConnectSigner();
+  if (!signer) {
+    throw new Error('WalletConnect not connected');
+  }
+  const cleanedTypes = { ...types };
+  delete (cleanedTypes as Record<string, unknown>).EIP712Domain;
+  return signer.signTypedData(domain, cleanedTypes, message);
+}
+
 export async function sendTransactionWithWalletConnect(tx: {
   to: string;
   value?: bigint;

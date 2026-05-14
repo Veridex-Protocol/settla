@@ -35,7 +35,7 @@ export function StepIndicator({ steps, currentStep, className }: StepIndicatorPr
                     className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all duration-300",
                       isCompleted && "border-green-500 bg-green-500 text-white",
-                      isCurrent && "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30",
+                      isCurrent && "border-cyan-500 bg-cyan-500 text-white shadow-lg shadow-cyan-500/30",
                       isUpcoming && "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
                     )}
                   >
@@ -50,7 +50,7 @@ export function StepIndicator({ steps, currentStep, className }: StepIndicatorPr
                       className={cn(
                         "text-sm font-medium transition-colors",
                         isCompleted && "text-green-600 dark:text-green-400",
-                        isCurrent && "text-indigo-600 dark:text-indigo-400",
+                        isCurrent && "text-cyan-600 dark:text-cyan-400",
                         isUpcoming && "text-slate-400 dark:text-slate-500"
                       )}
                     >
@@ -101,7 +101,7 @@ export function StepIndicator({ steps, currentStep, className }: StepIndicatorPr
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all",
                   isCompleted && "bg-green-500 text-white",
-                  isCurrent && "bg-indigo-500 text-white ring-4 ring-indigo-500/20",
+                  isCurrent && "bg-cyan-500 text-white ring-4 ring-cyan-500/20",
                   !isCompleted && !isCurrent && "bg-slate-200 text-slate-500 dark:bg-slate-700"
                 )}
               >

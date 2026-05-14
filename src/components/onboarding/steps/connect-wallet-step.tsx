@@ -88,7 +88,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-xl shadow-indigo-500/25">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-600 shadow-xl shadow-cyan-500/25">
           <Fingerprint className="h-10 w-10 text-white" />
         </div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -100,14 +100,14 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
       </div>
 
       {/* What is a Passkey? Info Box */}
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/30">
+      <div className="rounded-xl border border-cyan-100 bg-cyan-50/50 p-4 dark:border-cyan-900/50 dark:bg-cyan-950/30">
         <div className="flex gap-3">
-          <Info className="h-5 w-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+          <Info className="h-5 w-5 shrink-0 text-cyan-600 dark:text-cyan-400" />
           <div>
-            <h3 className="font-medium text-indigo-900 dark:text-indigo-200">
+            <h3 className="font-medium text-cyan-900 dark:text-cyan-200">
               What is a Passkey?
             </h3>
-            <p className="mt-1 text-sm text-indigo-700 dark:text-indigo-300">
+            <p className="mt-1 text-sm text-cyan-700 dark:text-cyan-300">
               A passkey uses your device's biometrics (Face ID, Touch ID, or Windows Hello) 
               to create a cryptographic key that proves your identity. It's more secure than 
               passwords and impossible to phish.
@@ -123,7 +123,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
             key={feature.title}
             className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/50"
           >
-            <feature.icon className="h-8 w-8 text-indigo-500" />
+            <feature.icon className="h-8 w-8 text-cyan-500" />
             <h3 className="mt-3 font-medium text-slate-900 dark:text-white">
               {feature.title}
             </h3>
@@ -180,7 +180,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
               
               <Button
                 size="lg"
-                className="w-full gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-600 hover:to-purple-700"
+                className="w-full gap-2 bg-gradient-to-r from-cyan-500 to-emerald-600 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-600 hover:to-emerald-700"
                 onClick={handleRegister}
                 disabled={isConnecting || isLoading}
               >
@@ -210,7 +210,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
               {hasStoredPasskey && (
                 <Button
                   size="lg"
-                  className="w-full gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-600 hover:to-purple-700"
+                  className="w-full gap-2 bg-gradient-to-r from-cyan-500 to-emerald-600 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-600 hover:to-emerald-700"
                   onClick={handleSignIn}
                   disabled={isConnecting || isLoading}
                 >
@@ -230,7 +230,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
                 className={
                   hasStoredPasskey 
                     ? "w-full gap-2" 
-                    : "w-full gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-600 hover:to-purple-700"
+                    : "w-full gap-2 bg-gradient-to-r from-cyan-500 to-emerald-600 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-600 hover:to-emerald-700"
                 }
                 onClick={() => {
                   setShowRegisterForm(true);
@@ -247,7 +247,7 @@ export function ConnectWalletStep({ onConnect, isLoading }: ConnectWalletStepPro
                 <p className="text-center text-sm text-slate-500 dark:text-slate-400">
                   Already have a passkey?{' '}
                   <button
-                    className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                    className="font-medium text-cyan-600 hover:underline dark:text-cyan-400"
                     onClick={handleSignIn}
                     disabled={isConnecting}
                   >

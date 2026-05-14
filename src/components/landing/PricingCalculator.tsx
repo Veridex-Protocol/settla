@@ -107,12 +107,12 @@ export const PricingCalculator = () => {
                                 />
                                 <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative z-10">
                                     <motion.div
-                                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
                                         style={{ width: `${(avgTransaction / 1000) * 100}%` }}
                                     />
                                 </div>
                                 <div
-                                    className="absolute z-10 w-6 h-6 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)] border-2 border-violet-500 top-0 pointer-events-none transition-all duration-75"
+                                    className="absolute z-10 w-6 h-6 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)] border-2 border-emerald-500 top-0 pointer-events-none transition-all duration-75"
                                     style={{ left: `calc(${(avgTransaction / 1000) * 100}% - 12px)` }}
                                 />
                             </div>
@@ -159,7 +159,7 @@ export const PricingCalculator = () => {
                 <div className="space-y-4">
                     <FeeBar
                         name="Stripe"
-                        color="bg-indigo-500"
+                        color="bg-cyan-500"
                         fee={stripeFee}
                         total={monthlyVolume}
                         icon="S"

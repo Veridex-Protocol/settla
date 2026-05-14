@@ -11,10 +11,10 @@ const AnimatedGradient = () => {
     <div className="absolute inset-0 overflow-hidden">
       {/* Animated mesh gradient */}
       <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob" />
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob" />
         <div className="absolute top-0 -right-4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000" />
         <div className="absolute -bottom-8 left-20 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000" />
-        <div className="absolute bottom-20 right-20 w-72 h-72 bg-violet-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-3000" />
+        <div className="absolute bottom-20 right-20 w-72 h-72 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-3000" />
       </div>
 
       {/* Noise texture overlay */}
@@ -268,7 +268,7 @@ const LivePaymentDemo = () => {
   }, []);
 
   const steps = [
-    { label: 'Invoice Created', color: 'from-violet-500 to-purple-500' },
+    { label: 'Invoice Created', color: 'from-emerald-500 to-emerald-500' },
     { label: 'Customer Pays', color: 'from-cyan-500 to-blue-500' },
     { label: 'Settlement', color: 'from-emerald-500 to-green-500' },
     { label: 'Funds Received', color: 'from-amber-500 to-orange-500' },
@@ -340,7 +340,7 @@ const LivePaymentDemo = () => {
       </div>
 
       {/* Glow effect */}
-      <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-violet-500/20 rounded-[4rem] blur-2xl -z-10" />
+      <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-emerald-500/20 rounded-[4rem] blur-2xl -z-10" />
     </div>
   );
 };
@@ -537,7 +537,7 @@ export default function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <div className="text-center">
-                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent mb-2">
+                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-500 bg-clip-text text-transparent mb-2">
                   <AnimatedCounter end={0} suffix="%" />
                 </div>
                 <p className="text-zinc-500">Chargebacks</p>
@@ -545,7 +545,7 @@ export default function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={300}>
               <div className="text-center">
-                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
+                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-500 to-pink-500 bg-clip-text text-transparent mb-2">
                   <AnimatedCounter end={9} suffix="+" />
                 </div>
                 <p className="text-zinc-500">Chains Supported</p>
@@ -625,7 +625,7 @@ export default function LandingPage() {
 
             {/* Passkey card */}
             <ScrollReveal delay={100}>
-              <div className="h-[400px] relative rounded-3xl bg-gradient-to-br from-violet-950/50 to-zinc-900/50 border border-violet-500/20 p-6 overflow-hidden group hover:border-violet-500/40 transition-colors">
+              <div className="h-[400px] relative rounded-3xl bg-gradient-to-br from-emerald-950/50 to-zinc-900/50 border border-emerald-500/20 p-6 overflow-hidden group hover:border-emerald-500/40 transition-colors">
                 <div className="relative z-10 h-full flex flex-col">
                   <h3 className="text-xl font-bold text-white mb-1">Passwords are dead</h3>
                   <p className="text-sm text-zinc-400 mb-4">Face ID. Touch ID. Done.</p>
@@ -633,16 +633,16 @@ export default function LandingPage() {
                   {/* Fingerprint animation */}
                   <div className="flex-1 flex items-center justify-center">
                     <div className="relative w-28 h-28">
-                      <div className="absolute inset-0 rounded-full border-2 border-violet-500/30">
-                        <div className="absolute inset-0 rounded-full border-2 border-violet-400 animate-ping opacity-20" />
+                      <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30">
+                        <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping opacity-20" />
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className="w-14 h-14 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                        <svg className="w-14 h-14 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                           <path d="M12 10V14M12 21C7.029 21 3 16.971 3 12C3 7.029 7.029 3 12 3C16.971 3 21 7.029 21 12C21 14.5 20 16.75 18.36 18.36" strokeLinecap="round" />
                           <path d="M9 12C9 10.343 10.343 9 12 9C13.657 9 15 10.343 15 12C15 14.5 13.5 17 12 17" strokeLinecap="round" />
                         </svg>
                       </div>
-                      <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-violet-400 to-transparent animate-scan" />
+                      <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                     </div>
                   </div>
 

@@ -386,7 +386,7 @@ export default function InvoicesPage() {
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-indigo-100 text-violet-600 dark:from-violet-900/30 dark:to-indigo-900/30 dark:text-violet-400">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-600 dark:from-emerald-900/30 dark:to-cyan-900/30 dark:text-emerald-400">
                                 <FileText className="h-5 w-5" />
                               </div>
                               <div>

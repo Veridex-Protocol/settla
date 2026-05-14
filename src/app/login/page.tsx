@@ -14,8 +14,10 @@ import {
   Zap,
   Key
 } from 'lucide-react';
+import { startAuthentication } from '@simplewebauthn/browser';
 import { Button, Input } from '@/components/ui';
 import { useWallet } from '@/lib/wallet-context';
+import { getVeridexSDK, getStoredCredentialInfo } from '@/lib/veridex-client';
 
 type AuthMode = 'select' | 'signin' | 'register';
 
@@ -44,6 +46,15 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
+  // Pre-warm the Veridex SDK so the WebAuthn ceremony fires immediately on
+  // click. Loading the SDK in the click handler can exhaust the browser's
+  // user-activation window (and surface as "page does not have focus").
+  useEffect(() => {
+    getVeridexSDK().catch((err) => {
+      console.warn('SDK pre-warm failed:', err);
+    });
+  }, []);
+
   // Load referral code from localStorage if not in URL params
   useEffect(() => {
     if (!referralCode) {
@@ -64,27 +75,58 @@ function LoginContent() {
     }
   }, [referralCode]);
 
-  // After successful passkey auth, create NextAuth session and redirect
-  useEffect(() => {
-    if (isConnected && address && credentialId && !isCreatingSession) {
-      createSessionAndRedirect();
-    }
-  }, [isConnected, address, credentialId]);
+  // After successful passkey auth, the explicit handlers below call
+  // `finalizeSession` directly. We intentionally do NOT auto-trigger session
+  // creation from a useEffect because the args required by NextAuth differ
+  // between register (registrationToken) and sign-in (challengeId +
+  // authResponse), and the wallet-context can't know which path the user took.
 
-  const createSessionAndRedirect = async () => {
+  const finalizeSession = async (
+    args:
+      | {
+          mode: 'register';
+          credentialId: string;
+          walletAddress: string;
+          registrationToken: string;
+        }
+      | {
+          mode: 'signin';
+          credentialId: string;
+          walletAddress: string;
+          challengeId: string;
+          authResponse: unknown;
+        },
+  ) => {
     setIsCreatingSession(true);
     try {
-      // Create NextAuth session with the passkey credentials
-      const result = await signIn('credentials', {
-        redirect: false,
-        credentialId: credentialId,
-        userHandle: address, // Use wallet address as user handle
-        referralCode: referralCode || undefined, // Pass referral code if present
-      });
+      const baseFields = {
+        redirect: false as const,
+        credentialId: args.credentialId,
+        userHandle: args.walletAddress,
+        referralCode: referralCode || undefined,
+      };
+
+      const result =
+        args.mode === 'register'
+          ? await signIn('credentials', {
+              ...baseFields,
+              registrationToken: args.registrationToken,
+            })
+          : await signIn('credentials', {
+              ...baseFields,
+              challengeId: args.challengeId,
+              authResponse: JSON.stringify(args.authResponse),
+            });
 
       if (result?.error) {
-        console.log('NextAuth session creation failed, redirecting anyway:', result.error);
-        // Even if NextAuth fails, we still have wallet auth - continue to dashboard
+        console.error('NextAuth session creation failed:', result.error);
+        setError(
+          args.mode === 'register'
+            ? 'Could not create your account session. Please try again.'
+            : 'Sign-in failed. Your passkey could not be verified.',
+        );
+        setIsCreatingSession(false);
+        return;
       }
 
       // Clear referral code from localStorage after successful signup
@@ -96,19 +138,97 @@ function LoginContent() {
       router.push(callbackUrl);
     } catch (err) {
       console.error('Session creation error:', err);
-      // Still redirect to dashboard since wallet auth succeeded
-      router.push(callbackUrl);
+      setError('Unexpected error while creating your session. Please try again.');
+      setIsCreatingSession(false);
     }
+  };
+
+  // Map common WebAuthn errors to actionable messages.
+  const describePasskeyError = (err: unknown, fallback: string): string => {
+    const name = (err as { name?: string } | null)?.name;
+    const message = err instanceof Error ? err.message : '';
+
+    if (name === 'NotAllowedError') {
+      // The most common cause of this on desktop is DevTools holding focus,
+      // or the user switching tabs/windows between the click and the prompt.
+      if (/focus/i.test(message)) {
+        return 'The browser blocked the passkey prompt because the page lost focus. Close DevTools (or click back into this page), then try again. If a passkey was already saved on your device, use "Sign In" instead.';
+      }
+      return 'Passkey prompt was cancelled or timed out. If a passkey was already saved on your device, use "Sign In" instead.';
+    }
+    if (name === 'InvalidStateError') {
+      return 'A passkey for this account already exists on this device. Use "Sign In" instead.';
+    }
+    if (name === 'SecurityError') {
+      return 'Passkeys require a secure context (HTTPS or localhost). Check your URL and try again.';
+    }
+    return fallback;
   };
 
   const handleSignIn = async () => {
     setError(null);
     try {
-      await connectPasskey('authenticate');
-      // useEffect will handle session creation and redirect
+      // Resolve the credential we'll be asserting against. Prefer the cached
+      // info so the user gets ONE prompt (the dashboard ceremony). On a fresh
+      // device we fall back to the SDK to derive the wallet address, which
+      // will surface a second prompt.
+      let walletAddress: string | null = null;
+      let credId: string | null = null;
+
+      const stored = getStoredCredentialInfo();
+      if (stored?.address && stored?.credentialId) {
+        walletAddress = stored.address;
+        credId = stored.credentialId;
+      } else {
+        const result = await connectPasskey('authenticate');
+        walletAddress = result.address;
+        credId = result.credentialId;
+      }
+
+      if (!walletAddress || !credId) {
+        throw new Error('Could not resolve passkey credential');
+      }
+
+      // Request a server-issued challenge bound to this sign-in attempt.
+      const challengeRes = await fetch('/api/auth/challenge', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      if (!challengeRes.ok) {
+        throw new Error('Failed to obtain authentication challenge');
+      }
+      const { challengeId, challenge } = (await challengeRes.json()) as {
+        challengeId: string;
+        challenge: string;
+      };
+
+      // Run the WebAuthn assertion against OUR challenge so the server can
+      // verify it with @simplewebauthn/server.
+      const authResponse = await startAuthentication({
+        optionsJSON: {
+          challenge,
+          rpId: window.location.hostname,
+          allowCredentials: [{ id: credId, type: 'public-key' }],
+          userVerification: 'preferred',
+          timeout: 60_000,
+        },
+      });
+
+      await finalizeSession({
+        mode: 'signin',
+        credentialId: credId,
+        walletAddress,
+        challengeId,
+        authResponse,
+      });
     } catch (err) {
       console.error('Failed to sign in:', err);
-      setError('Failed to authenticate. Make sure you have a registered passkey on this device.');
+      setError(
+        describePasskeyError(
+          err,
+          'Failed to authenticate. Make sure you have a registered passkey on this device.',
+        ),
+      );
     }
   };
 
@@ -119,11 +239,27 @@ function LoginContent() {
     }
     setError(null);
     try {
-      await connectPasskey('register', username.trim());
-      // useEffect will handle session creation and redirect
+      const result = await connectPasskey('register', username.trim());
+      if (!result.registrationToken) {
+        setError(
+          'Registration succeeded on this device but the server did not return a session token. Please try signing in.',
+        );
+        return;
+      }
+      await finalizeSession({
+        mode: 'register',
+        credentialId: result.credentialId,
+        walletAddress: result.address,
+        registrationToken: result.registrationToken,
+      });
     } catch (err) {
       console.error('Failed to register:', err);
-      setError('Failed to create passkey. Please make sure your device supports passkeys.');
+      setError(
+        describePasskeyError(
+          err,
+          'Failed to create passkey. Please make sure your device supports passkeys.',
+        ),
+      );
     }
   };
 
@@ -259,7 +395,7 @@ function LoginContent() {
                   <p className="text-xs text-zinc-400">Instant</p>
                 </div>
                 <div className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                  <Fingerprint className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+                  <Fingerprint className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
                   <p className="text-xs text-zinc-400">Biometric</p>
                 </div>
               </div>
@@ -277,8 +413,8 @@ function LoginContent() {
                 Back
               </button>
 
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-700/50">
-                <LogIn className="h-10 w-10 text-indigo-400" />
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-700/50">
+                <LogIn className="h-10 w-10 text-cyan-400" />
               </div>
 
               <h1 className="text-2xl font-semibold text-white mb-2">
@@ -290,7 +426,7 @@ function LoginContent() {
 
               <Button
                 size="lg"
-                className="w-full gap-3 bg-indigo-600 hover:bg-indigo-700"
+                className="w-full gap-3 bg-cyan-600 hover:bg-cyan-700"
                 onClick={handleSignIn}
                 disabled={isConnecting}
               >

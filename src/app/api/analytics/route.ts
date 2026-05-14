@@ -278,7 +278,7 @@ export async function GET(request: Request) {
 
         const currencyColors: Record<string, string> = {
             USDC: "from-blue-500 to-cyan-500",
-            EURC: "from-purple-500 to-pink-500",
+            EURC: "from-emerald-500 to-pink-500",
             XSGD: "from-emerald-500 to-teal-500",
             USDT: "from-green-500 to-emerald-500",
             DAI: "from-amber-500 to-yellow-500",

@@ -95,7 +95,7 @@ export function SmartShareCard({
 
                         <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/10 backdrop-blur-sm">
                             <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                                <div className="w-2 h-2 rounded-full bg-cyan-400" />
                                 <span className="text-zinc-300 text-sm">PayPal (4%)</span>
                             </div>
                             <span className="text-zinc-400 font-mono text-sm line-through decoration-red-400/50">

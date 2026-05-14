@@ -13,9 +13,13 @@ import {
   AlertCircle,
   ArrowLeft,
   Plus,
+  DollarSign,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useWallet } from "@/lib/wallet-context";
+import { SwapModal } from "@/components/swap-modal";
+import type { FXQuote, FXExecuteResult, PayableTokenRow } from "@/lib/services/fx-service";
+import { getFXService } from "@/lib/services/fx-service";
 
 interface PaymentPageProps {
   params: Promise<{ id: string }>;
@@ -54,6 +58,8 @@ export default function PaymentPage({ params }: PaymentPageProps) {
     connectPasskey,
     registerNewPasskey,
     disconnect,
+    switchWallet,
+    connectionMethod,
   } = useWallet();
 
   const [step, setStep] = useState<PaymentStep>("loading");
@@ -66,6 +72,18 @@ export default function PaymentPage({ params }: PaymentPageProps) {
   const [showCreatePasskey, setShowCreatePasskey] = useState(false);
   const [newPasskeyUsername, setNewPasskeyUsername] = useState("");
   const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
+
+  // Multi-stablecoin swap state
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [selectedPaymentCurrency, setSelectedPaymentCurrency] = useState<string | null>(null);
+  const [activeSwapQuote, setActiveSwapQuote] = useState<FXQuote | null>(null);
+
+  // Precomputed list of tokens in the payer's wallet that can actually settle
+  // this invoice via Sera. Computed once on wallet connect so the swap modal
+  // opens to an already-filtered, balance-aware picker.
+  const [payableTokens, setPayableTokens] = useState<PayableTokenRow[] | null>(null);
+  const [payableLoading, setPayableLoading] = useState(false);
+  const [payableError, setPayableError] = useState<string | null>(null);
 
   // Check passkey support locally (more reliable than context on initial render)
   useEffect(() => {
@@ -160,6 +178,85 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       return () => clearInterval(interval);
     }
   }, [step]);
+
+  // Background precompute: which of the payer's tokens can actually settle
+  // this invoice via Sera? We pull live balances from /api/wallet/tokens,
+  // then hand them to /api/sera/payable-tokens which batch-quotes Sera. The
+  // swap modal opens to an already-filtered picker (no per-tap quote latency,
+  // no NO_LIQUIDITY dead-ends).
+  useEffect(() => {
+    if (!isConnected || !address || !paymentLink) {
+      setPayableTokens(null);
+      setPayableError(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setPayableLoading(true);
+        setPayableError(null);
+
+        const balRes = await fetch(`/api/wallet/tokens?address=${address}`, { cache: 'no-store' });
+        const balText = await balRes.text();
+        let balBody: { tokens?: Array<{ symbol: string; address: string; decimals: number; balance: string }> };
+        try {
+          balBody = balText ? JSON.parse(balText) : {};
+        } catch {
+          throw new Error(
+            `Wallet balance lookup returned non-JSON (${balRes.status}). ` +
+            `If you see <!DOCTYPE in the body, the API was redirected to login — ` +
+            `check middleware publicRoutes.`,
+          );
+        }
+        if (!balRes.ok) {
+          throw new Error(
+            (balBody as { error?: string }).error
+              || `Wallet balance lookup failed (${balRes.status})`,
+          );
+        }
+        const candidates = (balBody.tokens || [])
+          .filter(t => t.address && t.address !== 'native' && parseFloat(t.balance) > 0)
+          .map(t => {
+            // Convert "1.50" → integer raw using BigInt to avoid float loss.
+            const [whole, frac = ''] = t.balance.split('.');
+            const fracPadded = (frac + '0'.repeat(t.decimals)).slice(0, t.decimals);
+            const raw = `${whole}${fracPadded}`.replace(/^0+(?=\d)/, '') || '0';
+            return { address: t.address, symbol: t.symbol, balanceRaw: raw };
+          });
+
+        if (candidates.length === 0) {
+          if (!cancelled) {
+            setPayableTokens([]);
+            setPayableLoading(false);
+          }
+          return;
+        }
+
+        const result = await getFXService().getPayableTokens({
+          payer: address,
+          recipient: paymentLink.business?.walletAddress
+            || "0x742d35Cc6634C0532925a3b844Bc9e7595f5bE40",
+          toToken: paymentLink.currency,
+          toAmount: paymentLink.amount.toString(),
+          candidates,
+        });
+
+        if (!cancelled) {
+          setPayableTokens(result.payable);
+          setPayableLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setPayableError(e instanceof Error ? e.message : 'Could not check payable tokens');
+          setPayableTokens([]);
+          setPayableLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address, paymentLink]);
 
   // Handle passkey authentication (existing passkey)
   const handlePasskeyAuth = useCallback(async () => {
@@ -316,6 +413,54 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       setStep("error");
     }
   }, [isConnected, preparePayment, confirmPayment, paymentLink, address]);
+
+  // Handle swap confirmation — Sera has already executed the swap by this
+  // point; we just need to record it and surface the trade as the payment tx.
+  const handleSwapConfirm = useCallback(async (result: FXExecuteResult & { quote: FXQuote }) => {
+    try {
+      const { quote } = result;
+      setActiveSwapQuote(quote);
+      setSelectedPaymentCurrency(quote.inputToken);
+      setShowSwapModal(false);
+
+      if (!paymentLink) {
+        throw new Error("Payment link invalid");
+      }
+
+      const finalTxHash = result.txHash || result.tradeId || null;
+      setTxHash(finalTxHash);
+
+      // Record the swap-payment for merchant settlement / reporting
+      try {
+        const recordResponse = await fetch('/api/pay/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentLinkId: paymentLink.id,
+            txHash: finalTxHash,
+            payerAddress: address,
+            amount: paymentLink.amount,
+            currency: paymentLink.currency,
+            swapQuote: quote,
+            tradeId: result.tradeId,
+          }),
+        });
+
+        if (!recordResponse.ok) {
+          console.error('Failed to record transaction:', await recordResponse.text());
+        }
+      } catch (recordError) {
+        console.error('Failed to record transaction:', recordError);
+      }
+
+      setStep("success");
+    } catch (err) {
+      console.error("Swap payment failed:", err);
+      setError(err instanceof Error ? err.message : "Payment failed");
+      setStep("error");
+      setShowSwapModal(false);
+    }
+  }, [paymentLink, address]);
 
   const handleRetry = () => {
     setError(null);
@@ -494,7 +639,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             {/* Merchant info */}
             <div className="w-full p-4 rounded-xl bg-white/5 border border-white/10 mb-4">
               <div className="flex items-center justify-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center shadow-lg">
                   <span className="text-white font-bold">{merchantName.charAt(0).toUpperCase()}</span>
                 </div>
                 <div className="text-left">
@@ -570,7 +715,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
               {error || "Unable to load payment details."}
             </p>
             <Button
-              className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500"
               onClick={() => window.location.reload()}
             >
               Try Again
@@ -594,7 +739,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
               {error || "Something went wrong. Please try again."}
             </p>
             <Button
-              className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500"
               onClick={handleRetry}
             >
               Try Again
@@ -616,7 +761,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/30 mb-4">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-cyan-600 shadow-lg shadow-emerald-500/30 mb-4">
             <span className="text-xl font-bold text-white">{merchantName.charAt(0).toUpperCase()}</span>
           </div>
           <h1 className="text-2xl font-bold text-white">{merchantName}</h1>
@@ -633,7 +778,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Amount Display */}
-            <div className="text-center p-6 rounded-2xl bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border border-violet-500/30">
+            <div className="text-center p-6 rounded-2xl bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 border border-emerald-500/30">
               <p className="text-sm text-zinc-400 mb-1">Amount Due</p>
               <p className="text-4xl font-bold text-white">
                 {formatCurrency(paymentLink.amount, paymentLink.currency)}
@@ -655,10 +800,10 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                   <button
                     onClick={() => setStep("passkey_auth")}
                     disabled={!isPasskeyAvailable}
-                    className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 hover:from-violet-600/30 hover:to-indigo-600/30 disabled:from-gray-600/10 disabled:to-gray-600/10 border border-violet-500/30 disabled:border-gray-500/30 rounded-xl transition-all transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 hover:from-emerald-600/30 hover:to-cyan-600/30 disabled:from-gray-600/10 disabled:to-gray-600/10 border border-emerald-500/30 disabled:border-gray-500/30 rounded-xl transition-all transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
                   >
-                    <div className="w-12 h-12 bg-violet-500/20 rounded-xl flex items-center justify-center">
-                      <Fingerprint className="w-6 h-6 text-violet-400" />
+                    <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                      <Fingerprint className="w-6 h-6 text-emerald-400" />
                     </div>
                     <div className="text-left flex-1">
                       <div className="font-semibold text-white">Pay with Passkey</div>
@@ -725,7 +870,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                       {/* Use Existing Passkey */}
                       <button
                         onClick={handlePasskeyAuth}
-                        className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                        className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                       >
                         <Fingerprint className="h-6 w-6" />
                         Sign in with Passkey
@@ -776,7 +921,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                         <button
                           onClick={handleCreatePasskey}
                           disabled={!newPasskeyUsername.trim()}
-                          className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg"
+                          className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed shadow-lg"
                         >
                           <Fingerprint className="h-6 w-6" />
                           Create & Pay
@@ -862,10 +1007,26 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                         {address?.slice(0, 6)}...{address?.slice(-4)}
                       </span>
                       <button
-                        onClick={() => {
-                          disconnect();
-                          setPaymentMethod(null);
-                          setStep("select_method");
+                        onClick={async () => {
+                          // If the user is on a passkey wallet, "Change" should
+                          // let them swap in a different wallet for this
+                          // payment WITHOUT logging out of their passkey
+                          // account. For non-passkey wallets, fall back to a
+                          // full disconnect so they can re-pick a method.
+                          if (connectionMethod === 'passkey') {
+                            try {
+                              await switchWallet('injected');
+                              setPaymentMethod('wallet');
+                              setStep('ready');
+                            } catch (err) {
+                              console.error('switchWallet failed:', err);
+                              setError(err instanceof Error ? err.message : 'Failed to switch wallet');
+                            }
+                          } else {
+                            disconnect();
+                            setPaymentMethod(null);
+                            setStep('select_method');
+                          }
                         }}
                         className="text-xs text-zinc-400 hover:text-white"
                       >
@@ -882,22 +1043,43 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-zinc-400">Network Fee</span>
-                      <span className="text-emerald-400">Free (Gasless)</span>
+                      <span className="text-zinc-400">Invoice Currency</span>
+                      <span className="text-white font-medium">{paymentLink.currency}</span>
                     </div>
+
+                    {/* Multi-Stablecoin Selector */}
+                    <div className="pt-2 border-t border-white/10">
+                      <button
+                        onClick={() => setShowSwapModal(true)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-left">
+                          <DollarSign className="h-4 w-4 text-cyan-400" />
+                          <div>
+                            <p className="text-xs text-zinc-500">Pay with</p>
+                            <p className="text-white font-medium">
+                              {selectedPaymentCurrency || paymentLink.currency}
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-cyan-400" />
+                      </button>
+                      <p className="text-xs text-zinc-500 mt-2">
+                        Choose any stablecoin • Auto-converted to {paymentLink.currency}
+                      </p>
+                    </div>
+
                     <Separator className="bg-white/10" />
                     <div className="flex justify-between">
-                      <span className="text-zinc-300 font-medium">Total</span>
-                      <span className="text-white font-bold">
-                        {formatCurrency(paymentLink.amount, paymentLink.currency)}
-                      </span>
+                      <span className="text-zinc-300 font-medium">Network Fee</span>
+                      <span className="text-emerald-400">Free (Gasless)</span>
                     </div>
                   </div>
 
                   {/* Payment Button */}
                   <button
-                    onClick={handlePayment}
-                    className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                    onClick={selectedPaymentCurrency ? () => setShowSwapModal(true) : handlePayment}
+                    className="w-full flex items-center justify-center gap-3 h-14 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                   >
                     {paymentMethod === 'passkey' ? (
                       <>
@@ -918,8 +1100,8 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             {step === "authenticating" && (
               <div className="flex flex-col items-center py-8">
                 <div className="relative mb-4">
-                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center">
-                    <Fingerprint className="h-8 w-8 text-violet-400 animate-pulse" />
+                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
+                    <Fingerprint className="h-8 w-8 text-emerald-400 animate-pulse" />
                   </div>
                 </div>
                 <p className="text-white font-medium">Confirm with Passkey</p>
@@ -932,9 +1114,9 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             {step === "processing" && (
               <div className="flex flex-col items-center py-8">
                 <div className="relative mb-4">
-                  <div className="h-16 w-16 rounded-full border-4 border-violet-500/30 border-t-violet-500 animate-spin" />
+                  <div className="h-16 w-16 rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <ShieldCheck className="h-6 w-6 text-violet-400" />
+                    <ShieldCheck className="h-6 w-6 text-emerald-400" />
                   </div>
                 </div>
                 <p className="text-white font-medium">Processing payment...</p>
@@ -952,6 +1134,22 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           <span>Secured by Veridex Protocol • Gasless Payments</span>
         </div>
       </div>
+
+      {/* Swap Modal for Multi-Stablecoin Selection */}
+      {paymentLink && (
+        <SwapModal
+          isOpen={showSwapModal}
+          onClose={() => setShowSwapModal(false)}
+          defaultInputToken={selectedPaymentCurrency || paymentLink.currency}
+          defaultOutputToken={paymentLink.currency}
+          defaultAmount={paymentLink.amount.toString()}
+          recipientAddress={paymentLink.business?.walletAddress || "0x742d35Cc6634C0532925a3b844Bc9e7595f5bE40"}
+          onSwapConfirm={handleSwapConfirm}
+          payableTokens={payableTokens}
+          payableLoading={payableLoading}
+          payableError={payableError}
+        />
+      )}
     </div>
   );
 }

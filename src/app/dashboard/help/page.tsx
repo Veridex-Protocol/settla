@@ -155,7 +155,7 @@ export default function HelpPage() {
                                             ? "bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white"
                                             : resource.color === "cyan"
                                                 ? "bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white"
-                                                : "bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white"
+                                                : "bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white"
                                         }`}
                                 >
                                     <resource.icon className="h-6 w-6" />
@@ -171,7 +171,7 @@ export default function HelpPage() {
                                             ? "text-emerald-400"
                                             : resource.color === "cyan"
                                                 ? "text-cyan-400"
-                                                : "text-purple-400"
+                                                : "text-emerald-400"
                                         }`}
                                 >
                                     Learn more{" "}

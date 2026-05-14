@@ -305,7 +305,7 @@ export function Header({ title, description, actions }: HeaderProps) {
                                             Back
                                         </Button>
                                         <Button
-                                            className="flex-1 gap-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-violet-700 hover:to-indigo-700"
+                                            className="flex-1 gap-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-700 hover:to-cyan-700"
                                             onClick={handleRegister}
                                             disabled={isConnecting || !username.trim()}
                                         >
@@ -326,7 +326,7 @@ export function Header({ title, description, actions }: HeaderProps) {
 
                                     {/* Sign in with existing passkey */}
                                     <Button
-                                        className="w-full gap-3 h-14 text-base bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-violet-700 hover:to-indigo-700"
+                                        className="w-full gap-3 h-14 text-base bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-700 hover:to-cyan-700"
                                         onClick={handleSignIn}
                                         disabled={isConnecting}
                                     >

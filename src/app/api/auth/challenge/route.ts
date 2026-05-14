@@ -13,7 +13,17 @@ interface ChallengeEntry {
   createdAt: number;
 }
 
-const challenges = new Map<string, ChallengeEntry>();
+// Attach to globalThis so the Map survives Next.js webpack route-bundle
+// isolation in dev (each route handler can otherwise see its own copy) and
+// HMR re-evaluation of this module. For multi-instance deployments swap for
+// Redis or a DB-backed store.
+const GLOBAL_KEY = Symbol.for('settla.auth.webauthnChallenges');
+type Global = typeof globalThis & { [GLOBAL_KEY]?: Map<string, ChallengeEntry> };
+const g = globalThis as Global;
+const challenges: Map<string, ChallengeEntry> =
+  g[GLOBAL_KEY] ?? new Map<string, ChallengeEntry>();
+g[GLOBAL_KEY] = challenges;
+
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const CHALLENGE_BYTES = 32;
 const MAX_CHALLENGES = 10_000;

@@ -45,8 +45,8 @@ const trustPoints = [
     icon: Eye,
     title: "Full Transparency",
     description: "Every transaction is verifiable on-chain. No hidden fees.",
-    color: "text-purple-400",
-    bgColor: "bg-purple-500/10",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10",
   },
   {
     icon: Shield,
@@ -175,7 +175,7 @@ export function TrustDashboard({ className, compact, walletAddress }: TrustDashb
         <p className="text-sm font-medium text-zinc-400 mb-4">How Payments Flow</p>
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-center">
-            <div className="h-12 w-12 mx-auto rounded-xl bg-purple-500/10 flex items-center justify-center mb-2">
+            <div className="h-12 w-12 mx-auto rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
               <span className="text-lg">👤</span>
             </div>
             <p className="text-xs text-zinc-400">Customer</p>

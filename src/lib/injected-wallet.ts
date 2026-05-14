@@ -146,6 +146,25 @@ export async function signMessageWithInjectedWallet(message: string): Promise<st
     return signer.signMessage(message);
 }
 
+// Sign EIP-712 typed data with injected wallet
+export async function signTypedDataWithInjectedWallet(
+    domain: ethers.TypedDataDomain,
+    types: Record<string, ethers.TypedDataField[]>,
+    message: Record<string, unknown>,
+): Promise<string> {
+    const provider = getInjectedProvider();
+    if (!provider) {
+        throw new Error('No wallet connected');
+    }
+
+    const ethersProvider = new ethers.BrowserProvider(provider);
+    const signer = await ethersProvider.getSigner();
+    // ethers v6 strips EIP712Domain from types automatically when signing
+    const cleanedTypes = { ...types };
+    delete (cleanedTypes as Record<string, unknown>).EIP712Domain;
+    return signer.signTypedData(domain, cleanedTypes, message);
+}
+
 // Send transaction with injected wallet
 export async function sendTransactionWithInjectedWallet(tx: {
     to: string;

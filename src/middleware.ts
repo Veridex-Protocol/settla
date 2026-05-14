@@ -10,6 +10,8 @@ const publicRoutes = [
   '/pay',        // Public payment pages
   '/api/auth',   // NextAuth endpoints
   '/api/pay',    // Payment API (record transactions, fetch payment links)
+  '/api/sera',   // Sera FX (markets/quote/execute) used by the public payer flow
+  '/api/wallet/tokens', // Public RPC pass-through for payer balances on /pay/[id]
   '/api/webhooks', // Webhook endpoints
   '/api/onboarding', // Onboarding API
   '/api/public', // Any public APIs
@@ -58,7 +60,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── CSRF protection for state-changing API requests (VDX-AUTH-005) ──
-  // Browsers don't send custom headers on cross-origin form POSTs.
+  // Accept any one of the following as proof the request is same-origin:
+  //   1. `x-requested-with` custom header (explicit opt-in by app code).
+  //   2. `Sec-Fetch-Site: same-origin|none` (set by the browser; cannot be
+  //      forged from a cross-origin context).
+  //   3. `Origin` header matching the request host.
+  // Cross-origin browser form POSTs and `<img>`/`<form>` GETs satisfy none of
+  // these, so CSRF attacks are still blocked.
   const method = request.method;
   if (
     pathname.startsWith('/api/') &&
@@ -68,7 +76,20 @@ export async function middleware(request: NextRequest) {
     !csrfExemptRoutes.some(route => pathname === route || pathname.startsWith(`${route}/`))
   ) {
     const hasCustomHeader = request.headers.has('x-requested-with');
-    if (!hasCustomHeader) {
+    const fetchSite = request.headers.get('sec-fetch-site');
+    const isSameSite = fetchSite === 'same-origin' || fetchSite === 'none';
+    const origin = request.headers.get('origin');
+    const host = request.headers.get('host');
+    const originMatchesHost =
+      !!origin && !!host && (() => {
+        try {
+          return new URL(origin).host === host;
+        } catch {
+          return false;
+        }
+      })();
+
+    if (!hasCustomHeader && !isSameSite && !originMatchesHost) {
       return NextResponse.json(
         { error: 'Forbidden — missing CSRF header' },
         { status: 403 },

@@ -183,9 +183,9 @@ export function PaymentButton({
         return `${baseStyles} bg-gradient-to-r from-red-500 to-rose-600 text-white`;
       case 'preparing':
       case 'confirming':
-        return `${baseStyles} bg-gradient-to-r from-indigo-500 to-purple-600 text-white cursor-wait`;
+        return `${baseStyles} bg-gradient-to-r from-cyan-500 to-emerald-600 text-white cursor-wait`;
       default:
-        return `${baseStyles} bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`;
+        return `${baseStyles} bg-gradient-to-r from-cyan-500 to-emerald-600 hover:from-cyan-600 hover:to-emerald-700 text-white hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`;
     }
   };
 
@@ -270,8 +270,8 @@ export function QuickPay({ to, amount, token, onSuccess, onError }: QuickPayProp
   };
 
   const colors = {
-    idle: 'from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700',
-    processing: 'from-indigo-500 to-purple-600',
+    idle: 'from-cyan-500 to-emerald-600 hover:from-cyan-600 hover:to-emerald-700',
+    processing: 'from-cyan-500 to-emerald-600',
     success: 'from-green-500 to-emerald-600',
     error: 'from-red-500 to-rose-600',
   };

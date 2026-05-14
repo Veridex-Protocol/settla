@@ -35,7 +35,7 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
                                     isCompleted
                                         ? "bg-gradient-to-br from-emerald-500 to-teal-500 border-emerald-500/50 shadow-lg shadow-emerald-500/30"
                                         : isActive
-                                            ? "bg-gradient-to-br from-violet-600 to-indigo-600 border-violet-500/50 shadow-lg shadow-violet-500/30"
+                                            ? "bg-gradient-to-br from-emerald-600 to-cyan-600 border-emerald-500/50 shadow-lg shadow-emerald-500/30"
                                             : "bg-slate-800/50 border-slate-700"
                                 )}
                                 initial={false}
@@ -68,7 +68,7 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
                             <div className="flex-1 mx-4 hidden sm:block">
                                 <div className="h-0.5 bg-slate-800 rounded-full overflow-hidden">
                                     <motion.div
-                                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
                                         initial={{ width: "0%" }}
                                         animate={{ width: isCompleted ? "100%" : "0%" }}
                                         transition={{ duration: 0.5, ease: "easeInOut" }}

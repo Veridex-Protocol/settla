@@ -162,7 +162,7 @@ export function VerificationStep({
             }}
             className={`
               w-full rounded-xl border bg-white px-4 py-3 text-slate-900 
-              shadow-sm transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20
+              shadow-sm transition-all focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20
               dark:border-slate-700 dark:bg-slate-800 dark:text-white
               ${errors.registrationCountry ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-300'}
             `}
@@ -188,16 +188,16 @@ export function VerificationStep({
                 setFormData(prev => ({ ...prev, acceptedTerms: e.target.checked }));
                 if (errors.acceptedTerms) setErrors(prev => ({ ...prev, acceptedTerms: undefined }));
               }}
-              className="mt-1 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+              className="mt-1 h-5 w-5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-600"
             />
             <div>
               <span className="text-sm text-slate-700 dark:text-slate-300">
                 I confirm that the information provided is accurate and I accept the{' '}
-                <a href="/terms" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                <a href="/terms" className="font-medium text-cyan-600 hover:underline dark:text-cyan-400">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="/privacy" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                <a href="/privacy" className="font-medium text-cyan-600 hover:underline dark:text-cyan-400">
                   Privacy Policy
                 </a>
               </span>

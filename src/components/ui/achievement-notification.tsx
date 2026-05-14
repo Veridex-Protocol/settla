@@ -269,7 +269,7 @@ function AchievementToast({ type, onDismiss, onShow }: AchievementToastProps) {
                 {definition.description}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-medium text-purple-300">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-xs font-medium text-emerald-300">
                   <Star className="h-3 w-3" />
                   +{definition.points} points
                 </span>

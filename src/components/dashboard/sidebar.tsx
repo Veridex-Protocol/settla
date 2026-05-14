@@ -152,7 +152,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 {/* Main Navigation */}
                 <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
                     {navigation.map((item) => {
-                        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                        // Overview (`/dashboard`) is the parent of every other
+                        // dashboard route, so it must match exactly. Children
+                        // get prefix matching so deep routes still highlight.
+                        const isActive =
+                            item.href === "/dashboard"
+                                ? pathname === "/dashboard"
+                                : pathname === item.href || pathname.startsWith(item.href + "/");
                         return (
                             <Link
                                 key={item.name}
@@ -212,12 +218,12 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 {/* Bottom Section */}
                 <div className="border-t border-zinc-800 p-4">
                     {!collapsed && (
-                        <div className="mb-4 rounded-xl bg-gradient-to-r from-violet-600/10 to-indigo-600/10 border border-violet-500/20 p-4">
+                        <div className="mb-4 rounded-xl bg-gradient-to-r from-emerald-600/10 to-cyan-600/10 border border-emerald-500/20 p-4">
                             <h4 className="text-sm font-semibold text-white mb-1">Need Help?</h4>
                             <p className="text-xs text-zinc-400 mb-3">
                                 Contact support for assistance with your account.
                             </p>
-                            <Button size="sm" variant="outline" className="w-full border-emerald-500/30 text-emerald-400 hover:bg-violet-500/10">
+                            <Button size="sm" variant="outline" className="w-full border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
                                 Contact Support
                             </Button>
                         </div>

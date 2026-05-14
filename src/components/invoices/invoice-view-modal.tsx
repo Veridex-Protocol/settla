@@ -66,8 +66,8 @@ export function InvoiceViewModal({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-lg px-6 py-4 dark:border-slate-700 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/30">
+              <FileText className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -211,7 +211,7 @@ export function InvoiceViewModal({
               )}
               <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span className="font-medium text-slate-900 dark:text-white">Total</span>
-                <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
                   {formatCurrency(total, invoice.currency)}
                 </span>
               </div>

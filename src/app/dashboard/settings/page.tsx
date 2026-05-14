@@ -353,8 +353,8 @@ export default function SettingsPage() {
                 <AccordionItem value="regional" className="border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden">
                   <AccordionTrigger className="px-6 py-4 hover:bg-zinc-800/50 transition-colors [&[data-state=open]>svg]:rotate-180">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                        <Globe className="h-5 w-5 text-purple-400" />
+                      <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                        <Globe className="h-5 w-5 text-emerald-400" />
                       </div>
                       <div className="text-left">
                         <p className="font-medium text-white">Regional Settings</p>

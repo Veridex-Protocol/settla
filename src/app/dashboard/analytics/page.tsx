@@ -352,7 +352,7 @@ export default function AnalyticsPage() {
                 success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
                 warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
                 info: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-                tip: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+                tip: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
               };
               const Icon = iconMap[insight.type];
 
@@ -428,7 +428,7 @@ export default function AnalyticsPage() {
                     ? "from-red-500/5 to-transparent"
                     : metric.color === "blue"
                       ? "from-blue-500/5 to-transparent"
-                      : "from-purple-500/5 to-transparent"
+                      : "from-emerald-500/5 to-transparent"
                   }`}
               />
               <CardContent className="p-6 relative">
@@ -441,7 +441,7 @@ export default function AnalyticsPage() {
                         ? "bg-red-500/10 text-red-400"
                         : metric.color === "blue"
                           ? "bg-blue-500/10 text-blue-400"
-                          : "bg-purple-500/10 text-purple-400"
+                          : "bg-emerald-500/10 text-emerald-400"
                       }`}
                   >
                     <metric.icon className="h-5 w-5" />
@@ -663,7 +663,7 @@ export default function AnalyticsPage() {
         >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5 text-purple-400" />
+              <PieChart className="h-5 w-5 text-emerald-400" />
               Currency Distribution
             </CardTitle>
             <CardDescription>Breakdown by stablecoin</CardDescription>
@@ -716,7 +716,7 @@ export default function AnalyticsPage() {
                 {/* Currency Cards */}
                 <div className="grid grid-cols-2 gap-3">
                   {currencyBreakdown.map((item, index) => {
-                    const colors = ["bg-emerald-500", "bg-cyan-500", "bg-purple-500", "bg-amber-500", "bg-red-500", "bg-pink-500"];
+                    const colors = ["bg-emerald-500", "bg-cyan-500", "bg-emerald-500", "bg-amber-500", "bg-red-500", "bg-pink-500"];
                     return (
                       <div
                         key={item.currency}

@@ -58,7 +58,7 @@ interface TeamMember {
 }
 
 const roleColors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-    admin: { bg: "bg-purple-500/10", text: "text-purple-400", icon: <Crown className="h-3 w-3" /> },
+    admin: { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <Crown className="h-3 w-3" /> },
     finance: { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <Shield className="h-3 w-3" /> },
     developer: { bg: "bg-cyan-500/10", text: "text-cyan-400", icon: <Shield className="h-3 w-3" /> },
     member: { bg: "bg-zinc-500/10", text: "text-zinc-400", icon: <Shield className="h-3 w-3" /> },
@@ -179,7 +179,7 @@ export default function TeamPage() {
     const getAvatarColor = (name: string) => {
         const colors = [
             'from-emerald-500 to-teal-600',
-            'from-purple-500 to-indigo-600',
+            'from-emerald-500 to-cyan-600',
             'from-pink-500 to-rose-600',
             'from-cyan-500 to-blue-600',
             'from-amber-500 to-orange-600',
@@ -234,7 +234,7 @@ export default function TeamPage() {
                                         <SelectContent>
                                             <SelectItem value="admin">
                                                 <div className="flex items-center gap-2">
-                                                    <Crown className="h-4 w-4 text-purple-400" />
+                                                    <Crown className="h-4 w-4 text-emerald-400" />
                                                     Admin - Full access
                                                 </div>
                                             </SelectItem>

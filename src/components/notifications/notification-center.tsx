@@ -91,7 +91,7 @@ const getNotificationIcon = (type: string) => {
             return { Icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" };
         case "payment_link_used":
         case "payment_link_expired":
-            return { Icon: Link2, color: "text-purple-400", bg: "bg-purple-500/10" };
+            return { Icon: Link2, color: "text-emerald-400", bg: "bg-emerald-500/10" };
         case "security_alert":
             return { Icon: Shield, color: "text-red-400", bg: "bg-red-500/10" };
         case "milestone_reached":
