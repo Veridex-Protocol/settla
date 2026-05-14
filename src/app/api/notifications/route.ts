@@ -36,6 +36,31 @@ export async function GET(request: Request) {
 
         return NextResponse.json(result);
     } catch (error) {
+        // Neon serverless pooler periodically drops idle connections / times
+        // out during cold starts. Notifications are non-critical UI chrome —
+        // degrade gracefully with an empty payload so the client doesn't
+        // surface a 500 and stop polling. Real errors still log.
+        const msg = error instanceof Error ? error.message : String(error);
+        const isDbConnectivity =
+            /timeout exceeded when trying to connect/i.test(msg) ||
+            /Can't reach database server/i.test(msg) ||
+            /Connection terminated/i.test(msg) ||
+            // Prisma known-request P1001/P1002/P1008/P1017
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (error as any)?.code === 'P1001' ||
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (error as any)?.code === 'P1002' ||
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (error as any)?.code === 'P1008' ||
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (error as any)?.code === 'P1017';
+        if (isDbConnectivity) {
+            console.warn('[NOTIFICATIONS_GET] DB unavailable, serving empty payload:', msg);
+            return NextResponse.json(
+                { notifications: [], total: 0, unreadCount: 0, degraded: true },
+                { status: 200, headers: { 'cache-control': 'no-store' } },
+            );
+        }
         console.error("[NOTIFICATIONS_GET]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }
