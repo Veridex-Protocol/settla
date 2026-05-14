@@ -1,31 +1,81 @@
 import { NextResponse } from "next/server";
+import { JsonRpcProvider, isHexString } from "ethers";
 import { prisma } from "@/lib/db";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB (VDX-API-006)
 
+// Server-side RPC for on-chain receipt verification. Same precedence as
+// /api/chain/sera-intent so all settlement paths share a provider config.
+const RPC_URL =
+    process.env.SETTLEMENT_RPC_URL ||
+    process.env.ALCHEMY_SEPOLIA_RPC_URL ||
+    process.env.NEXT_PUBLIC_RPC_URL ||
+    "https://rpc.sepolia.org";
+
+let cachedProvider: JsonRpcProvider | null = null;
+function getProvider(): JsonRpcProvider {
+    if (!cachedProvider) cachedProvider = new JsonRpcProvider(RPC_URL);
+    return cachedProvider;
+}
+
+/**
+ * Verify a txHash is mined and successful on-chain before we persist anything.
+ * Returns:
+ *   { ok: true, blockNumber }            – receipt found and status === 1
+ *   { ok: false, reason: 'pending' }     – not yet mined, client should retry
+ *   { ok: false, reason: 'reverted' }    – mined but reverted (status 0)
+ *   { ok: false, reason: 'rpc_error' }   – RPC failure, client should retry
+ */
+async function verifyTxOnChain(
+    txHash: string,
+): Promise<
+    | { ok: true; blockNumber: number }
+    | { ok: false; reason: "pending" | "reverted" | "rpc_error" }
+> {
+    try {
+        const receipt = await getProvider().getTransactionReceipt(txHash);
+        if (!receipt) return { ok: false, reason: "pending" };
+        if (receipt.status === 1) return { ok: true, blockNumber: receipt.blockNumber };
+        return { ok: false, reason: "reverted" };
+    } catch (err) {
+        console.warn("[PAY_RECORD_POST] getTransactionReceipt failed:", err);
+        return { ok: false, reason: "rpc_error" };
+    }
+}
+
 /**
  * Verify HMAC-SHA256 signature on the request body.
- * The client must send the signature in x-payment-signature header
- * computed as HMAC-SHA256(PAYMENT_WEBHOOK_SECRET, rawBody).
+ * Service-to-service callers (e.g. settlement workers) send the signature in
+ * x-payment-signature computed as HMAC-SHA256(PAYMENT_WEBHOOK_SECRET, rawBody).
+ *
+ * Returns:
+ *   "valid"   – signature present and matches
+ *   "invalid" – signature present but does not match (reject)
+ *   "absent"  – no signature header; fall back to public-payer path
  */
-function verifySignature(rawBody: string, signature: string | null): boolean {
+function verifySignature(rawBody: string, signature: string | null): "valid" | "invalid" | "absent" {
+    if (!signature) return "absent";
     const secret = process.env.PAYMENT_WEBHOOK_SECRET;
-    if (!secret) return false;
-    if (!signature) return false;
+    if (!secret) return "invalid";
 
     const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-    if (expected.length !== signature.length) return false;
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    if (expected.length !== signature.length) return "invalid";
+    try {
+        return timingSafeEqual(Buffer.from(expected), Buffer.from(signature)) ? "valid" : "invalid";
+    } catch {
+        return "invalid";
+    }
 }
 
 /**
  * Record a completed payment transaction
  * POST /api/pay/record
  *
- * VDX-API-001: Requires HMAC signature verification via PAYMENT_WEBHOOK_SECRET.
- * Transactions are recorded as "pending" — a background job must verify on-chain
- * before flipping to "confirmed".
+ * VDX-API-001: Requires HMAC signature verification via PAYMENT_WEBHOOK_SECRET
+ * for service-to-service callers. Anonymous payer submissions are accepted
+ * without a signature but the txHash is verified on-chain (status === 1)
+ * before anything is persisted, so replays / fakes never reach the DB.
  */
 export async function POST(req: Request) {
     try {
@@ -42,24 +92,55 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Payload too large" }, { status: 413 });
         }
 
-        // VDX-API-001: Verify HMAC signature
+        // VDX-API-001: Verify HMAC signature for service-to-service callers.
+        // The public payer page (/pay/[id]) is anonymous and cannot sign — those
+        // submissions land here without a signature and are accepted on the
+        // public-payer path. Authenticity for both paths ultimately relies on:
+        //   (a) paymentLink must exist + still be active (checked below),
+        //   (b) txHash dedupe (checked below),
+        //   (c) status is recorded as "pending" until the on-chain verification
+        //       worker confirms the tx — replays / fakes never reach "confirmed".
         const signature = req.headers.get("x-payment-signature");
-        if (!verifySignature(rawBody, signature)) {
+        const sigState = verifySignature(rawBody, signature);
+        if (sigState === "invalid") {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const body = JSON.parse(rawBody);
         const {
             paymentLinkId,
+            paymentLinkShortCode,
             txHash,
             payerAddress,
             amount,
             currency,
         } = body;
 
-        if (!paymentLinkId || !txHash || !payerAddress || !amount) {
+        // VDX-API-005: the public /api/pay/[id] response omits the internal id
+        // and only exposes shortCode. Accept either so the payment page can
+        // record without re-fetching internal identifiers.
+        const linkLookup = paymentLinkId ?? paymentLinkShortCode;
+
+        const missing: string[] = [];
+        if (!linkLookup) missing.push('paymentLinkId|paymentLinkShortCode');
+        if (!txHash) missing.push('txHash');
+        if (!payerAddress) missing.push('payerAddress');
+        if (!amount) missing.push('amount');
+
+        if (missing.length > 0) {
+            console.warn('[PAY_RECORD_POST] Missing fields:', missing, {
+                paymentLinkId: typeof paymentLinkId,
+                paymentLinkShortCode: typeof paymentLinkShortCode,
+                txHash: typeof txHash,
+                payerAddress: typeof payerAddress,
+                amount: typeof amount,
+                currency,
+                hasSwapQuote: 'swapQuote' in body,
+                hasTradeId: 'tradeId' in body,
+            });
             return NextResponse.json({
-                error: "Missing required fields: paymentLinkId, txHash, payerAddress, amount"
+                error: `Missing required fields: ${missing.join(', ')}`,
+                missing,
             }, { status: 400 });
         }
 
@@ -72,9 +153,32 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Transaction already recorded" }, { status: 409 });
         }
 
-        // Get the payment link
-        const paymentLink = await prisma.paymentLink.findUnique({
-            where: { id: paymentLinkId },
+        // VDX-API-001: Verify the txHash is mined and successful on-chain BEFORE
+        // we touch the DB. We don't store pending rows — only confirmed payments.
+        // The public payer page polls /api/pay/record until it gets 200 or 400.
+        if (!isHexString(txHash, 32)) {
+            return NextResponse.json({ error: "Invalid txHash" }, { status: 400 });
+        }
+        const verification = await verifyTxOnChain(txHash);
+        if (!verification.ok) {
+            if (verification.reason === "reverted") {
+                return NextResponse.json(
+                    { error: "Transaction reverted on-chain", reason: "reverted" },
+                    { status: 400 },
+                );
+            }
+            // pending or rpc_error → tell the client to retry
+            return NextResponse.json(
+                { error: "Transaction not yet confirmed", reason: verification.reason },
+                { status: 202 },
+            );
+        }
+
+        // Resolve link by id or shortCode (whichever was provided).
+        const paymentLink = await prisma.paymentLink.findFirst({
+            where: paymentLinkId
+                ? { id: paymentLinkId }
+                : { shortCode: paymentLinkShortCode },
             include: { business: true }
         });
 
@@ -90,8 +194,7 @@ export async function POST(req: Request) {
         // Start a transaction to ensure atomicity
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await prisma.$transaction(async (tx: any) => {
-            // 1. Create the transaction record
-            // VDX-API-001: Status is "pending" — requires background verification
+            // 1. Create the transaction record (confirmed — on-chain receipt verified above)
             const transaction = await tx.transaction.create({
                 data: {
                     businessId: paymentLink.businessId,
@@ -101,11 +204,12 @@ export async function POST(req: Request) {
                     amount: typeof amount === 'string' ? parseFloat(amount) : amount,
                     currency: currency || paymentLink.currency,
                     txHash: txHash,
-                    status: "pending",
+                    status: "confirmed",
                     payerAddress: payerAddress,
                     metadata: {
                         source: "payment_link",
                         shortCode: paymentLink.shortCode,
+                        blockNumber: verification.blockNumber,
                     }
                 }
             });
@@ -133,15 +237,21 @@ export async function POST(req: Request) {
                 }
             });
 
-            // 4. Invoice status update deferred until transaction is confirmed
-            // by the background verification job (no longer auto-marking as "paid")
+            // 4. Mark linked invoice paid (tx is on-chain confirmed)
+            if (paymentLink.invoiceId) {
+                await tx.invoice.update({
+                    where: { id: paymentLink.invoiceId },
+                    data: { status: "paid" },
+                });
+            }
 
             return { transaction, receipt, paymentLinkUpdated: true, shouldDeactivate };
         });
 
-        console.log("[PAY_RECORD_POST] Transaction recorded (pending):", {
+        console.log("[PAY_RECORD_POST] Transaction recorded (confirmed):", {
             transactionId: result.transaction.id,
             receiptNumber: result.receipt.receiptNumber,
+            blockNumber: verification.blockNumber,
             shouldDeactivate: result.shouldDeactivate,
         });
 

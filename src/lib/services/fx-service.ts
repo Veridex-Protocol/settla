@@ -123,6 +123,16 @@ export interface FXExecuteResult {
 }
 
 /**
+ * Result of polling `/api/chain/sera-intent/[hash]` for a swap settlement.
+ * `txHash` is `null` while the SOR contract has not yet emitted `IntentMatched`
+ * for this intent hash on Sepolia.
+ */
+export interface IntentSettlement {
+  txHash: string | null;
+  blockNumber: number | null;
+}
+
+/**
  * Typed error thrown by getQuote so callers can branch on Sera's error_code
  * (per docs.sera.cx/api-reference/endpoints/swaps/#error-envelope) instead of
  * regex-matching free-form strings.
@@ -393,6 +403,43 @@ class FXServiceImpl {
         error: e instanceof Error ? e.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Look up the on-chain settlement for a Sera SOR swap by querying
+   * SeraSOR's `IntentMatched(bytes32 intentHash, ...)` event log.
+   *
+   * `intentHash` is the EIP-712 struct hash recomputed off-chain from the
+   * quote's `routeParams` (see lib/sera/intent-hash.ts) — no API key needed.
+   * Pass `fromBlock` (snapshot before sending the swap) to bound the scan;
+   * the server caps lookback as a safety net.
+   *
+   * Returns `{ txHash: null, blockNumber: null }` while the swap is still
+   * pending on Sera; callers should poll until `txHash` is set or a timeout
+   * elapses.
+   */
+  async getIntentSettlement(
+    intentHash: string,
+    fromBlock?: number | bigint,
+  ): Promise<IntentSettlement> {
+    const qs = fromBlock !== undefined
+      ? `?fromBlock=${fromBlock.toString()}`
+      : '';
+    const res = await fetch(`/api/chain/sera-intent/${intentHash}${qs}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new FXError(
+        body.error || `Settlement lookup failed (${res.status})`,
+        { status: res.status },
+      );
+    }
+    return {
+      txHash: body.tx_hash ?? null,
+      blockNumber: body.block_number ?? null,
+    };
   }
 
   getTokens(): SeraToken[] {

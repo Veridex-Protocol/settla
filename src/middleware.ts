@@ -11,6 +11,7 @@ const publicRoutes = [
   '/api/auth',   // NextAuth endpoints
   '/api/pay',    // Payment API (record transactions, fetch payment links)
   '/api/sera',   // Sera FX (markets/quote/execute) used by the public payer flow
+  '/api/chain',  // RPC-backed settlement lookups (e.g. /api/chain/sera-intent/[hash])
   '/api/wallet/tokens', // Public RPC pass-through for payer balances on /pay/[id]
   '/api/webhooks', // Webhook endpoints
   '/api/onboarding', // Onboarding API

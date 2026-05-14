@@ -20,13 +20,14 @@ import { useWallet } from "@/lib/wallet-context";
 import { SwapModal } from "@/components/swap-modal";
 import type { FXQuote, FXExecuteResult, PayableTokenRow } from "@/lib/services/fx-service";
 import { getFXService } from "@/lib/services/fx-service";
+import { computeIntentHash } from "@/lib/sera/intent-hash";
+import { JsonRpcProvider } from "ethers";
 
 interface PaymentPageProps {
   params: Promise<{ id: string }>;
 }
 
 interface PaymentLinkData {
-  id: string;
   shortCode: string;
   amount: number;
   currency: string;
@@ -40,8 +41,57 @@ interface PaymentLinkData {
   };
 }
 
-type PaymentStep = "loading" | "select_method" | "passkey_auth" | "wallet_connect" | "ready" | "authenticating" | "processing" | "success" | "error" | "not_found" | "expired";
+type PaymentStep = "loading" | "select_method" | "passkey_auth" | "wallet_connect" | "ready" | "authenticating" | "processing" | "settling" | "success" | "error" | "not_found" | "expired";
 type PaymentMethod = "passkey" | "wallet" | null;
+
+/**
+ * Post the payment to /api/pay/record, retrying while the server reports the
+ * tx isn't mined yet (202). Server only inserts once the on-chain receipt is
+ * confirmed (status === 1), so this loop is what bridges client-side "tx
+ * submitted" to server-side "row written".
+ *
+ * Resolves once the row is written (200) or the tx reverted (400 reverted).
+ * Throws after `deadlineMs` so the caller can surface the partial-success state.
+ */
+async function recordPayment(
+  body: Record<string, unknown>,
+  opts: { deadlineMs?: number; intervalMs?: number } = {},
+): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+  const deadline = Date.now() + (opts.deadlineMs ?? 180_000); // 3 min cap
+  const intervalMs = opts.intervalMs ?? 3_000;
+  let lastError = "Recording timed out";
+  while (Date.now() < deadline) {
+    let res: Response;
+    try {
+      res = await fetch('/api/pay/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (netErr) {
+      lastError = netErr instanceof Error ? netErr.message : 'network_error';
+      await new Promise((r) => setTimeout(r, intervalMs));
+      continue;
+    }
+
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: true, data };
+    }
+    // 202 = tx not yet mined or transient RPC issue; keep polling.
+    if (res.status === 202) {
+      await new Promise((r) => setTimeout(r, intervalMs));
+      continue;
+    }
+    // 409 = already recorded (e.g. double-submit) — treat as success.
+    if (res.status === 409) {
+      return { ok: true, data: { duplicate: true } };
+    }
+    const text = await res.text().catch(() => '');
+    return { ok: false, error: `HTTP ${res.status}: ${text}` };
+  }
+  return { ok: false, error: lastError };
+}
 
 export default function PaymentPage({ params }: PaymentPageProps) {
   const resolvedParams = use(params);
@@ -381,29 +431,21 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       setTxHash(finalTxHash);
 
-      // Record the transaction in the database
-      try {
-        const recordResponse = await fetch('/api/pay/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentLinkId: paymentLink.id,
-            txHash: finalTxHash,
-            payerAddress: address,
-            amount: paymentLink.amount,
-            currency: paymentLink.currency,
-          }),
-        });
-
-        if (!recordResponse.ok) {
-          console.error('Failed to record transaction:', await recordResponse.text());
-        } else {
-          const recordData = await recordResponse.json();
-          console.log('Transaction recorded:', recordData);
-        }
-      } catch (recordError) {
-        // Don't fail the payment if recording fails - tx is already on-chain
-        console.error('Failed to record transaction:', recordError);
+      // Record the transaction — server waits for on-chain confirmation
+      // (status === 1) before inserting. Helper retries while server reports
+      // 202 (not yet mined).
+      const recordResult = await recordPayment({
+        paymentLinkShortCode: paymentLink.shortCode,
+        txHash: finalTxHash,
+        payerAddress: address,
+        amount: paymentLink.amount,
+        currency: paymentLink.currency,
+      });
+      if (recordResult.ok) {
+        console.log('Transaction recorded:', recordResult.data);
+      } else {
+        // Tx is on-chain so the payment succeeded; surface the recording gap.
+        console.error('Failed to record transaction:', recordResult.error);
       }
 
       setStep("success");
@@ -427,30 +469,82 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         throw new Error("Payment link invalid");
       }
 
-      const finalTxHash = result.txHash || result.tradeId || null;
-      setTxHash(finalTxHash);
+      // Sera /swap returns a trade_id immediately, but the on-chain tx_hash
+      // only lands once SeraSOR emits `IntentMatched` on Sepolia. We recompute
+      // the EIP-712 intent struct hash from the quote's routeParams and watch
+      // the SOR contract for the matching log — no Sera API key (owner-scoped)
+      // needed. See lib/sera/intent-hash.ts and /api/chain/sera-intent/[hash].
+      let realTxHash: string | null = result.txHash ?? null;
 
-      // Record the swap-payment for merchant settlement / reporting
-      try {
-        const recordResponse = await fetch('/api/pay/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentLinkId: paymentLink.id,
-            txHash: finalTxHash,
-            payerAddress: address,
-            amount: paymentLink.amount,
-            currency: paymentLink.currency,
-            swapQuote: quote,
-            tradeId: result.tradeId,
-          }),
-        });
-
-        if (!recordResponse.ok) {
-          console.error('Failed to record transaction:', await recordResponse.text());
+      if (!realTxHash) {
+        const routeParams = quote.routeParams;
+        if (!routeParams) {
+          throw new Error('Swap quote missing route_params; cannot derive intent hash');
         }
-      } catch (recordError) {
-        console.error('Failed to record transaction:', recordError);
+
+        setStep('settling');
+
+        const intentHash = computeIntentHash(routeParams);
+
+        // Snapshot the latest block so the server only scans forward.
+        // `NEXT_PUBLIC_RPC_URL` is the same Sepolia RPC the page already uses
+        // for balances, so no new env wiring needed.
+        let fromBlock: number | undefined;
+        try {
+          const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+          if (rpcUrl) {
+            const provider = new JsonRpcProvider(rpcUrl);
+            fromBlock = await provider.getBlockNumber();
+          }
+        } catch (snapshotErr) {
+          // Non-fatal: server will fall back to a bounded lookback window.
+          console.warn('[Payment] fromBlock snapshot failed:', snapshotErr);
+        }
+
+        const fx = getFXService();
+        const deadline = Date.now() + 120_000; // 2 min
+        const intervalMs = 2_000;
+
+        while (Date.now() < deadline) {
+          let snapshot;
+          try {
+            snapshot = await fx.getIntentSettlement(intentHash, fromBlock);
+          } catch (pollErr) {
+            // Transient RPC/proxy failure — back off and retry.
+            console.warn('[Payment] Intent settlement poll failed:', pollErr);
+            await new Promise((r) => setTimeout(r, intervalMs));
+            continue;
+          }
+
+          if (snapshot.txHash) {
+            realTxHash = snapshot.txHash;
+            break;
+          }
+
+          await new Promise((r) => setTimeout(r, intervalMs));
+        }
+
+        if (!realTxHash) {
+          throw new Error(
+            'Settlement is taking longer than expected. Your trade is still on Sera — check back shortly.',
+          );
+        }
+      }
+
+      setTxHash(realTxHash);
+
+      // Record the swap-payment — server verifies on-chain receipt first.
+      const recordResult = await recordPayment({
+        paymentLinkShortCode: paymentLink.shortCode,
+        txHash: realTxHash,
+        payerAddress: address,
+        amount: paymentLink.amount,
+        currency: paymentLink.currency,
+        swapQuote: quote,
+        tradeId: result.tradeId,
+      });
+      if (!recordResult.ok) {
+        console.error('Failed to record transaction:', recordResult.error);
       }
 
       setStep("success");
@@ -1122,6 +1216,21 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                 <p className="text-white font-medium">Processing payment...</p>
                 <p className="text-sm text-zinc-400 mt-1">
                   Settling via Sera Protocol
+                </p>
+              </div>
+            )}
+
+            {step === "settling" && (
+              <div className="flex flex-col items-center py-8">
+                <div className="relative mb-4">
+                  <div className="h-16 w-16 rounded-full border-4 border-sky-500/30 border-t-sky-500 animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <ShieldCheck className="h-6 w-6 text-sky-400" />
+                  </div>
+                </div>
+                <p className="text-white font-medium">Settling on-chain…</p>
+                <p className="text-sm text-zinc-400 mt-1 text-center max-w-xs">
+                  Waiting for Sera to confirm the trade on Sepolia. This can take up to ~2 minutes.
                 </p>
               </div>
             )}
