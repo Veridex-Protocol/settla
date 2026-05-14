@@ -15,6 +15,7 @@ export class SeraService {
     private provider: ethers.JsonRpcProvider;
     private routerContract: ethers.Contract;
     private graphql: SeraGraphQLClient;
+    private decimalCache: Map<string, number> = new Map();
 
     constructor() {
         this.provider = new ethers.JsonRpcProvider(SERA_CONFIG.rpcUrl);
@@ -33,13 +34,37 @@ export class SeraService {
     }
 
     /**
+     * Get and cache the decimals of a token (default to 6 if read fails)
+     */
+    private async getTokenDecimals(tokenAddress: string): Promise<number> {
+        if (this.decimalCache.has(tokenAddress)) {
+            return this.decimalCache.get(tokenAddress)!;
+        }
+        
+        try {
+            const abi = ["function decimals() view returns (uint8)"];
+            const contract = new ethers.Contract(tokenAddress, abi, this.provider);
+            const decimals = await contract.decimals();
+            this.decimalCache.set(tokenAddress, Number(decimals));
+            return Number(decimals);
+        } catch (error) {
+            console.warn(`[SeraService] Failed to read decimals for ${tokenAddress}, defaulting to 6`, error);
+            // Safe default for most stablecoins
+            this.decimalCache.set(tokenAddress, 6);
+            return 6;
+        }
+    }
+
+    /**
      * Get the balance of a specific token for a user
      */
     async getTokenBalance(tokenAddress: string, userAddress: string): Promise<string> {
-        const abi = ["function balanceOf(address owner) view returns (uint256)"];
-        const contract = new ethers.Contract(tokenAddress, abi, this.provider);
+        const balanceAbi = ["function balanceOf(address owner) view returns (uint256)"];
+        const contract = new ethers.Contract(tokenAddress, balanceAbi, this.provider);
         const balance = await contract.balanceOf(userAddress);
-        return ethers.formatUnits(balance, 6); // Assuming 6 decimals for stablecoins
+        
+        const decimals = await this.getTokenDecimals(tokenAddress);
+        return ethers.formatUnits(balance, decimals);
     }
 
     /**

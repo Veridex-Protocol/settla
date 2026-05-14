@@ -62,9 +62,15 @@ export interface SettlementParams {
   merchantAddress: string;
 }
 
-// Convert amount to raw amount for Sera
-function toRawAmount(amount: string, quoteUnit: bigint): bigint {
-  const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 1_000_000)); // 6 decimals
+/**
+ * Convert a human-readable decimal amount to raw (on-chain) amount.
+ * Assumes the input amount is in token's human-readable units (e.g., "1.5" USDC).
+ * Most stablecoins (USDC, EURC, XSGD) use 6 decimals; we default to 6 but
+ * can be extended to read from token contract if needed.
+ */
+function toRawAmount(amount: string, quoteUnit: bigint, decimals: number = 6): bigint {
+  const multiplier = BigInt(10) ** BigInt(decimals);
+  const amountBigInt = BigInt(Math.floor(parseFloat(amount) * Number(multiplier)));
   return amountBigInt / quoteUnit;
 }
 

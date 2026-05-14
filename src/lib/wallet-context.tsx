@@ -440,7 +440,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     wcUnsubscribersRef.current.forEach(unsub => unsub());
     wcUnsubscribersRef.current = [];
 
-    // Clear passkey credentials
+    // Clear the active-session pointer ONLY. The encrypted credential blob
+    // stays on disk so the user can log back in without re-registering.
+    // Use forgetThisDevice() if a hard wipe is needed.
     clearStoredCredentialInfo();
 
     // Sign out from NextAuth session
@@ -456,7 +458,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connectionMethod: null,
       passkeySupported: isPasskeySupported(),
       credentialId: null,
-      hasStoredPasskey: false,
+      // Credentials persist across logout — keep this true so the next login
+      // can offer "Sign in with existing passkey".
+      hasStoredPasskey: hasStoredCredentials(),
     });
   }, [safeSetState]);
 

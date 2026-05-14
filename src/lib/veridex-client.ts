@@ -1,6 +1,16 @@
 'use client';
 
 import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
+import {
+  clearActiveCredential as secureClearActive,
+  getActiveCredential as secureGetActive,
+  hasAnyCredentialSync,
+  loadCredentialBlob,
+  setActiveCredential as secureSetActive,
+  upsertCredentials,
+  wipeAllCredentials,
+  type StoredPasskeyCredential,
+} from './secure-credential-store';
 
 // NO imports from @veridex/sdk at the top level - even type imports can cause SSR issues
 // All SDK access is done through dynamic imports
@@ -141,6 +151,24 @@ export async function authenticateWithPasskey(): Promise<{
 
   // Authenticate with existing passkey (via Base hub)
   const result = await sdk.passkey.authenticate();
+
+  // Mirror into the encrypted store and drop any plaintext copy the SDK
+  // may have written internally.
+  try {
+    await upsertCredentials([
+      {
+        credentialId: result.credential.credentialId,
+        publicKeyX: result.credential.publicKeyX.toString(),
+        publicKeyY: result.credential.publicKeyY.toString(),
+        keyHash: result.credential.keyHash,
+      },
+    ]);
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem('veridex_credentials'); } catch {}
+    }
+  } catch (e) {
+    console.warn('[veridex-client] Failed to mirror authenticated credential:', e);
+  }
 
   // Get the Base hub vault address (for authentication)
   const hubAddress = sdk.getVaultAddress();
@@ -576,7 +604,19 @@ export async function getTokenBalanceForPayment(
     const decimals = tokenInfo.decimals;
     const formatted = ethers.formatUnits(rawBalance, decimals);
 
-    console.log(`[veridex-client] Balance result: ${formatted} ${tokenSymbol} (raw: ${rawBalance})`);
+    // Debug logging for balance discrepancies (enable via NEXT_PUBLIC_DEBUG_BALANCE env var)
+    if (typeof window !== 'undefined' && window.location.search.includes('debug_balance=1')) {
+      console.group(`[DEBUG] Balance Lookup for ${tokenSymbol}`);
+      console.log('  Vault Address:', vaultAddress);
+      console.log('  Token Contract:', tokenInfo.address);
+      console.log('  Token Decimals:', decimals);
+      console.log('  Raw Balance:', rawBalance.toString());
+      console.log('  Formatted Balance:', formatted);
+      console.log('  Expected Format:', `${formatted} ${tokenSymbol}`);
+      console.groupEnd();
+    }
+
+    console.log(`[veridex-client] Balance result: ${formatted} ${tokenSymbol} (raw: ${rawBalance}); vault: ${vaultAddress}`);
 
     return {
       balance: rawBalance,
@@ -613,69 +653,78 @@ export function isPasskeySupported(): boolean {
 }
 
 /**
- * Check if user has existing passkey credentials stored
+ * Check (synchronously) if user has any stored passkey credentials.
+ * Best-effort during initial render; the async path corrects later.
  */
 export function hasStoredCredentials(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    // Check both new and legacy keys
-    return localStorage.getItem('veridex_credentials') !== null ||
-      localStorage.getItem('veridex_credential') !== null;
-  } catch {
-    return false;
-  }
+  return hasAnyCredentialSync();
 }
 
 /**
- * Store credential info locally (non-sensitive data only)
+ * Persist the "active" credential pointer in the encrypted blob.
+ * NOTE: the actual credential set is upserted separately via the SDK sync path.
  */
 export function storeCredentialInfo(info: {
   address: string;
   credentialId: string;
 }): void {
-  if (typeof window === 'undefined') return;
-  try {
-    // We only store the "active" credential info here for session restoration
-    localStorage.setItem('sera_active_session', JSON.stringify(info));
-  } catch (e) {
-    console.warn('Failed to store credential info:', e);
-  }
+  void secureSetActive(info).catch((e) =>
+    console.warn('[veridex-client] storeCredentialInfo failed:', e),
+  );
 }
 
 /**
- * Get stored credential info
+ * Get the active credential pointer (synchronous best-effort wrapper around
+ * the encrypted store). Returns null if not yet hydrated; the async
+ * `getStoredCredentialInfoAsync` is preferred.
  */
 export function getStoredCredentialInfo(): {
   address: string;
   credentialId: string;
 } | null {
   if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem('sera_active_session');
-    if (!stored) return null;
-    return JSON.parse(stored);
-  } catch {
-    return null;
-  }
+  // Synchronous path: callers should treat this as a hint only.
+  // The wallet-context useEffect will hydrate the real value asynchronously.
+  return null;
+}
+
+export async function getStoredCredentialInfoAsync(): Promise<{
+  address: string;
+  credentialId: string;
+} | null> {
+  const active = await secureGetActive();
+  return active ?? null;
 }
 
 /**
- * Clear stored credential info
+ * Logout helper. Does NOT delete the stored credential set — only clears the
+ * "active" pointer so the next login can re-bind. Credentials remain
+ * encrypted at rest so the user does not have to re-register a passkey.
  */
 export function clearStoredCredentialInfo(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem('sera_active_session');
-  } catch (e) {
-    console.warn('Failed to clear credential info:', e);
-  }
+  void secureClearActive().catch((e) =>
+    console.warn('[veridex-client] clearStoredCredentialInfo failed:', e),
+  );
 }
 
 /**
- * Restore the SDK credential from localStorage
- * This is needed when the wallet state is restored from a NextAuth session
- * but the SDK credential was lost due to page reload or navigation.
- * 
+ * Hard wipe: forget this device entirely. Drops the encrypted credential
+ * blob and the device key. Triggered only by an explicit "forget device"
+ * action.
+ */
+export async function forgetThisDevice(): Promise<void> {
+  await wipeAllCredentials();
+}
+
+/**
+ * Restore the SDK credential after a page reload or fresh login.
+ *
+ * Order of precedence:
+ *   1. SDK already has a credential in memory — nothing to do.
+ *   2. Encrypted local blob — hydrate the SDK from the active credential,
+ *      or fall back to the first stored credential.
+ *   3. Relayer lookup (last resort, requires network).
+ *
  * @returns true if credential was restored, false otherwise
  */
 export async function restoreSDKCredential(): Promise<boolean> {
@@ -684,61 +733,56 @@ export async function restoreSDKCredential(): Promise<boolean> {
   try {
     const sdk = await getVeridexSDK();
 
-    // Check if SDK already has a credential set
-    const existingCredential = sdk.passkey.getCredential();
-    if (existingCredential) {
-      console.log('[veridex-client] SDK credential already set');
+    // 1. Already restored?
+    if (sdk.passkey.getCredential()) {
       return true;
     }
 
-    // Try to restore from localStorage using active session ID if available
-    const session = localStorage.getItem('sera_active_session');
-    if (session) {
+    // 2. Encrypted local blob.
+    const blob = await loadCredentialBlob();
+    if (blob.credentials.length > 0) {
+      const activeId = blob.lastActive?.credentialId;
+      const chosen =
+        (activeId && blob.credentials.find((c) => c.credentialId === activeId)) ||
+        blob.credentials[0];
       try {
-        const { credentialId } = JSON.parse(session);
-        if (credentialId) {
-          const allCreds = sdk.passkey.getAllStoredCredentials();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const matched = allCreds.find((c: any) => c.credentialId === credentialId);
-          if (matched) {
-            sdk.passkey.setCredential(matched);
-            console.log('[veridex-client] Restored matching SDK credential from localStorage');
+        sdk.passkey.createCredentialFromPublicKey(
+          chosen.credentialId,
+          BigInt(chosen.publicKeyX),
+          BigInt(chosen.publicKeyY),
+        );
+        console.log('[veridex-client] Restored SDK credential from encrypted store');
+        return true;
+      } catch (e) {
+        console.warn('[veridex-client] Encrypted store credential rejected by SDK:', e);
+      }
+    }
+
+    // 3. Relayer fallback.
+    const active = await secureGetActive();
+    if (active?.credentialId && RELAYER_URL) {
+      try {
+        const response = await fetch(
+          `${RELAYER_URL}/api/v1/credential/by-id/${encodeURIComponent(active.credentialId)}`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.exists && data.publicKeyX && data.publicKeyY && data.keyHash) {
+            sdk.passkey.createCredentialFromPublicKey(
+              data.credentialId,
+              BigInt(data.publicKeyX),
+              BigInt(data.publicKeyY),
+            );
+            await upsertCredentials([
+              {
+                credentialId: data.credentialId,
+                publicKeyX: data.publicKeyX.toString(),
+                publicKeyY: data.publicKeyY.toString(),
+                keyHash: data.keyHash,
+              },
+            ]);
+            console.log('[veridex-client] Restored SDK credential from relayer');
             return true;
-          }
-        }
-      } catch { /* ignore parse errors */ }
-    }
-
-    // Fallback: Try to restore the last used credential from localStorage
-    const restored = sdk.passkey.loadFromLocalStorage();
-    if (restored) {
-      console.log('[veridex-client] Restored SDK credential from localStorage');
-      return true;
-    }
-
-    // If we have a stored session but not in localStorage, try to fetch from relayer
-    if (session) {
-      try {
-        const { credentialId } = JSON.parse(session);
-        if (credentialId && RELAYER_URL) {
-          console.log('[veridex-client] Attempting to restore credential from relayer...');
-          const response = await fetch(
-            `${RELAYER_URL}/api/v1/credential/by-id/${encodeURIComponent(credentialId)}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            if (data.exists && data.publicKeyX && data.publicKeyY && data.keyHash) {
-              // Create credential and set it in the SDK
-              sdk.passkey.createCredentialFromPublicKey(
-                data.credentialId,
-                BigInt(data.publicKeyX),
-                BigInt(data.publicKeyY)
-              );
-              // Also save to localStorage for future use
-              sdk.passkey.saveToLocalStorage();
-              console.log('[veridex-client] Restored SDK credential from relayer');
-              return true;
-            }
           }
         }
       } catch (error) {
@@ -746,7 +790,6 @@ export async function restoreSDKCredential(): Promise<boolean> {
       }
     }
 
-    console.log('[veridex-client] Could not restore SDK credential');
     return false;
   } catch (error) {
     console.error('[veridex-client] Error restoring SDK credential:', error);
@@ -763,6 +806,16 @@ async function syncCredentialToBackend(credential: any): Promise<void> {
   const publicKeyY = credential.publicKeyY.toString();
   const keyHash = credential.keyHash;
   const credentialId = credential.credentialId;
+
+  // 0. Mirror to the encrypted local store so subsequent reloads can hydrate
+  //    the SDK without any network round-trips.
+  try {
+    await upsertCredentials([
+      { credentialId, publicKeyX, publicKeyY, keyHash },
+    ]);
+  } catch (e) {
+    console.warn('[veridex-client] Failed to mirror credential to secure store:', e);
+  }
 
   // 1. Sync to dashboard's backend (for authenticated session management)
   // Note: This will return 401 if user isn't logged in yet - that's expected
@@ -817,40 +870,31 @@ async function syncCredentialToBackend(credential: any): Promise<void> {
 async function fetchRelayerCredentials(): Promise<void> {
   if (!RELAYER_URL || typeof window === 'undefined') return;
 
-  // Get any existing credentials from localStorage to check if we need to fetch
-  const existing = localStorage.getItem('veridex_credentials');
-  if (existing) {
-    // Already have credentials cached, no need to fetch
-    return;
-  }
+  const existing = await loadCredentialBlob();
+  if (existing.credentials.length > 0) return;
 
-  // If we have a stored session with a credentialId, try to fetch that credential
-  const session = localStorage.getItem('sera_active_session');
-  if (session) {
-    try {
-      const { credentialId } = JSON.parse(session);
-      if (credentialId) {
-        console.log('Attempting to restore credential from relayer...');
-        const response = await fetch(
-          `${RELAYER_URL}/api/v1/credential/by-id/${encodeURIComponent(credentialId)}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          if (data.exists && data.publicKeyX && data.publicKeyY) {
-            const cred = {
-              credentialId: data.credentialId,
-              publicKeyX: data.publicKeyX,
-              publicKeyY: data.publicKeyY,
-              keyHash: data.keyHash,
-            };
-            localStorage.setItem('veridex_credentials', JSON.stringify([cred]));
-            console.log('Credential restored from relayer');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch credential from relayer:', error);
+  const active = existing.lastActive;
+  if (!active?.credentialId) return;
+
+  try {
+    const response = await fetch(
+      `${RELAYER_URL}/api/v1/credential/by-id/${encodeURIComponent(active.credentialId)}`,
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.exists && data.publicKeyX && data.publicKeyY && data.keyHash) {
+      await upsertCredentials([
+        {
+          credentialId: data.credentialId,
+          publicKeyX: data.publicKeyX.toString(),
+          publicKeyY: data.publicKeyY.toString(),
+          keyHash: data.keyHash,
+        },
+      ]);
+      console.log('[veridex-client] Credential cached from relayer');
     }
+  } catch (error) {
+    console.error('[veridex-client] Failed to fetch credential from relayer:', error);
   }
 }
 
@@ -858,60 +902,37 @@ async function fetchRelayerCredentials(): Promise<void> {
  * Fetch credentials from backend and populate SDK storage
  * Falls back gracefully - the SDK will fetch from relayer during authentication if needed
  */
-async function fetchBackendCredentials(sdk: any): Promise<void> {
-  // First try to get from relayer (no auth required)
+async function fetchBackendCredentials(_sdk: any): Promise<void> {
+  // First try to populate from the relayer (public endpoint).
   await fetchRelayerCredentials();
 
-  // Then try authenticated endpoint - silently skip if not authenticated
-  // This is an optimization: if user is already logged in, we can sync their credentials
+  // Then try the authenticated backend endpoint (no-op if unauthenticated).
   try {
     const response = await fetch('/api/auth/credentials');
-    if (!response.ok) {
-      // Not authenticated - this is expected, SDK will handle via relayer
-      return;
-    }
+    if (!response.ok) return;
 
     const data = await response.json();
-    if (data.authenticators && Array.isArray(data.authenticators)) {
-      // Filter out any credentials missing required fields
-      const validAuths = data.authenticators.filter(
-        (auth: any) => auth.credentialID && auth.publicKeyX && auth.publicKeyY && auth.keyHash
-      );
+    if (!data.authenticators || !Array.isArray(data.authenticators)) return;
 
-      if (validAuths.length === 0) {
-        return;
-      }
+    const validAuths = data.authenticators.filter(
+      (auth: any) =>
+        auth.credentialID && auth.publicKeyX && auth.publicKeyY && auth.keyHash,
+    );
+    if (validAuths.length === 0) return;
 
-      const credentials = validAuths.map((auth: any) => ({
-        credentialId: auth.credentialID,
-        publicKeyX: auth.publicKeyX, // Keep as string for storage
-        publicKeyY: auth.publicKeyY,
-        keyHash: auth.keyHash,
-      }));
+    const credentials: StoredPasskeyCredential[] = validAuths.map((auth: any) => ({
+      credentialId: auth.credentialID,
+      publicKeyX: auth.publicKeyX.toString(),
+      publicKeyY: auth.publicKeyY.toString(),
+      keyHash: auth.keyHash,
+    }));
 
-      // Merge with existing localStorage credentials
-      if (window.localStorage) {
-        const existing = localStorage.getItem('veridex_credentials');
-        let allCreds = credentials;
-
-        if (existing) {
-          try {
-            const parsed = JSON.parse(existing);
-            if (Array.isArray(parsed)) {
-              // Merge: prefer new credentials but keep old ones not in new set
-              const newIds = new Set(credentials.map((c: any) => c.credentialId));
-              const oldCreds = parsed.filter((c: any) => !newIds.has(c.credentialId));
-              allCreds = [...credentials, ...oldCreds];
-            }
-          } catch { /* ignore parse errors */ }
-        }
-
-        localStorage.setItem('veridex_credentials', JSON.stringify(allCreds));
-        console.log(`Synced ${allCreds.length} credential(s) from backend`);
-      }
-    }
+    const blob = await upsertCredentials(credentials);
+    console.log(
+      `[veridex-client] Synced ${blob.credentials.length} credential(s) from backend`,
+    );
   } catch {
-    // Network error or other issue - silently continue, SDK will handle
+    // Network error or other issue — silently continue, SDK will handle.
   }
 }
 
@@ -974,7 +995,16 @@ export async function authenticateWithRelatedOrigins(): Promise<{
   // This ensures restoreSDKCredential() works on page reload
   const sdk = await getVeridexSDK();
   sdk.passkey.setCredential(result.credential);
-  sdk.passkey.saveToLocalStorage();
+  await upsertCredentials([
+    {
+      credentialId: result.credential.credentialId,
+      publicKeyX: result.credential.publicKeyX.toString(),
+      publicKeyY: result.credential.publicKeyY.toString(),
+      keyHash: result.credential.keyHash,
+    },
+  ]);
+  // Drop the plaintext key the SDK may have written.
+  try { localStorage.removeItem('veridex_credentials'); } catch {}
 
   // Compute the Ethereum Sepolia vault address (for Sera transactions)
   const vaultAddress = await computeEthSepoliaVaultAddress(result.credential.keyHash);
@@ -1015,7 +1045,15 @@ export async function connectWithVeridex(options?: {
   // This ensures restoreSDKCredential() works on page reload
   const sdk = await getVeridexSDK();
   sdk.passkey.setCredential(session.credential);
-  sdk.passkey.saveToLocalStorage();
+  await upsertCredentials([
+    {
+      credentialId: session.credential.credentialId,
+      publicKeyX: session.credential.publicKeyX.toString(),
+      publicKeyY: session.credential.publicKeyY.toString(),
+      keyHash: session.credential.keyHash,
+    },
+  ]);
+  try { localStorage.removeItem('veridex_credentials'); } catch {}
 
   // Compute the Ethereum Sepolia vault address (for Sera transactions)
   const vaultAddress = await computeEthSepoliaVaultAddress(session.credential.keyHash);
