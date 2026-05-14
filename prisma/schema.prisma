@@ -367,13 +367,20 @@ enum AchievementType {
   TEAM_PLAYER           // Invited 3+ team members
   GLOBAL_MERCHANT       // Payments from 5+ countries
   CRYPTO_NATIVE         // 10+ different tokens received
-  CENTURY_CLUB          // 100 transactions milestone
-  VOLUME_BRONZE         // $5k total volume
-  VOLUME_SILVER         // $25k total volume
-  VOLUME_GOLD           // $100k total volume
-  VOLUME_DIAMOND        // $500k total volume
+  CENTURY_CLUB          // (legacy) 100 transactions milestone
+  HUNDRED_CLUB          // 100 transactions milestone
+  THOUSAND_CLUB         // 1,000 transactions milestone
+  VOLUME_BRONZE         // (legacy) $5k total volume
+  VOLUME_SILVER         // (legacy) $25k total volume
+  VOLUME_GOLD           // (legacy) $100k total volume
+  VOLUME_DIAMOND        // (legacy) $500k total volume
+  VOLUME_ROOKIE         // $1k total volume
+  VOLUME_PRO            // $100k total volume
   STREAK_WEEKLY         // 7-day login streak
-  STREAK_MONTHLY        // 30-day login streak
+  STREAK_MONTHLY        // (legacy) 30-day login streak
+  STREAK_MASTER         // 30-day login streak
+  SECURITY_FIRST        // Enabled Passkey authentication
+  ONBOARDING_COMPLETE   // Completed all onboarding steps
   REFERRAL_CHAMPION     // 10+ successful referrals
 }
 

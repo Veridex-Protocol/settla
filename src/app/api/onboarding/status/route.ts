@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
+import {
+    awardOnboardingCompleteBadge,
+    awardOnboardingPoints,
+} from "@/lib/services/achievement-service";
 
 // GET /api/onboarding/status - Check if user has completed onboarding
 export async function GET() {
@@ -67,6 +71,16 @@ export async function POST() {
             where: { id: authUser.id },
             data: { onboardingCompleted: true },
         });
+
+        // Fire gamification rewards (idempotent — no-op if already awarded)
+        try {
+            await Promise.all([
+                awardOnboardingPoints(authUser.id),
+                awardOnboardingCompleteBadge(authUser.id),
+            ]);
+        } catch (gamErr) {
+            console.error("[ONBOARDING_STATUS_POST] gamification failed:", gamErr);
+        }
 
         return NextResponse.json({ success: true, onboardingCompleted: true });
     } catch (error) {

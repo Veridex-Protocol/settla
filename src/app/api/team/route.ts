@@ -4,6 +4,10 @@ import { getAuthenticatedUser } from "@/lib/api-auth";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 import { updateTeamGoals } from "@/lib/services/goal-service";
+import {
+    awardTeamPlayerBadgeIfEligible,
+    awardTeamInvitePoints,
+} from "@/lib/services/achievement-service";
 
 const inviteSchema = z.object({
     email: z.string().email("Valid email is required"),
@@ -162,6 +166,16 @@ export async function POST(request: Request) {
             await updateTeamGoals(authUser.id);
         } catch (goalError) {
             console.error("[TEAM_POST] Failed to update team goals:", goalError);
+        }
+
+        // Gamification: invite points + TEAM_PLAYER badge (idempotent)
+        try {
+            await Promise.all([
+                awardTeamInvitePoints(authUser.id),
+                awardTeamPlayerBadgeIfEligible(authUser.id, authUser.businessId),
+            ]);
+        } catch (gamErr) {
+            console.error("[TEAM_POST] gamification failed:", gamErr);
         }
 
         return NextResponse.json({

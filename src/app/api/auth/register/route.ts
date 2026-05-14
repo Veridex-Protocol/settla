@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { issueRegistrationToken } from '@/lib/auth/registration-tokens';
 import { applyReferralCode } from '@/lib/services/referral-service';
+import {
+    awardSecurityFirstBadge,
+    awardEarlyAdopterBadgeIfEligible,
+    awardPasskeyPoints,
+} from '@/lib/services/achievement-service';
 
 /**
  * POST /api/auth/register
@@ -254,6 +259,17 @@ export async function POST(request: Request) {
             } catch (err) {
                 console.error('[register] referral application failed:', err);
             }
+        }
+
+        // Gamification: passkey-related badges + points (idempotent)
+        try {
+            await Promise.all([
+                awardSecurityFirstBadge(user.id),
+                awardPasskeyPoints(user.id),
+                awardEarlyAdopterBadgeIfEligible(user.id),
+            ]);
+        } catch (gamErr) {
+            console.error('[register] gamification failed:', gamErr);
         }
 
         const token = issueRegistrationToken({

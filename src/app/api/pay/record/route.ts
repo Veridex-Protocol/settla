@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { JsonRpcProvider, isHexString } from "ethers";
 import { prisma } from "@/lib/db";
 import { createHmac, timingSafeEqual } from "crypto";
+import {
+    checkPaymentAchievements,
+    getBusinessOwnerUserId,
+} from "@/lib/services/achievement-service";
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB (VDX-API-006)
 
@@ -254,6 +258,22 @@ export async function POST(req: Request) {
             blockNumber: verification.blockNumber,
             shouldDeactivate: result.shouldDeactivate,
         });
+
+        // Fire gamification checks. Best-effort — never block the response on
+        // achievement errors.
+        try {
+            const ownerUserId = await getBusinessOwnerUserId(paymentLink.businessId);
+            if (ownerUserId) {
+                const numericAmount = typeof amount === "string" ? parseFloat(amount) : amount;
+                await checkPaymentAchievements(
+                    ownerUserId,
+                    paymentLink.businessId,
+                    numericAmount,
+                );
+            }
+        } catch (gamErr) {
+            console.error("[PAY_RECORD_POST] achievement check failed:", gamErr);
+        }
 
         return NextResponse.json({
             success: true,

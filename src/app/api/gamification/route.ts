@@ -1,22 +1,34 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { getUserTierStatus, updateUserTier } from "@/lib/services/tier-service";
-import { getUserAchievements, getUserPoints, updateStreak } from "@/lib/services/achievement-service";
+import {
+    getUserAchievements,
+    getUserPoints,
+    updateStreak,
+    evaluateAllAchievements,
+} from "@/lib/services/achievement-service";
 import { getReferralStats } from "@/lib/services/referral-service";
 import { db } from "@/lib/db";
 
 export async function GET() {
-  try {
-    const authUser = await getAuthenticatedUser();
-    if (!authUser) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    try {
+        const authUser = await getAuthenticatedUser();
+        if (!authUser) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
 
-    // Update streak on dashboard visit
-    const streakResult = await updateStreak(authUser.id);
+        // Update streak on dashboard visit
+        const streakResult = await updateStreak(authUser.id);
 
-    // Fetch all gamification data in parallel
-    const [tierStatus, achievements, points, referralStats, user] = await Promise.all([
+        // Run retroactive achievement evaluation (idempotent). Best-effort —
+        // never block the response.
+        try {
+            await evaluateAllAchievements(authUser.id);
+        } catch (gamErr) {
+            console.error("[GAMIFICATION_GET] evaluator failed:", gamErr);
+        }
+
+        const [tierStatus, achievements, points, referralStats, user] = await Promise.all([
       getUserTierStatus(authUser.id),
       getUserAchievements(authUser.id),
       getUserPoints(authUser.id, 5),

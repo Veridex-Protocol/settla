@@ -68,6 +68,20 @@ export const ACHIEVEMENT_DEFINITIONS: Record<
     color: "red",
     points: 300,
   },
+  HUNDRED_CLUB: {
+    name: "100 Club",
+    description: "Completed 100 transactions",
+    icon: "💯",
+    color: "amber",
+    points: 400,
+  },
+  THOUSAND_CLUB: {
+    name: "1000 Club",
+    description: "Completed 1,000 transactions",
+    icon: "🏆",
+    color: "gold",
+    points: 1000,
+  },
   VOLUME_BRONZE: {
     name: "Bronze Volume",
     description: "Reached $5,000 total volume",
@@ -96,6 +110,20 @@ export const ACHIEVEMENT_DEFINITIONS: Record<
     color: "cyan",
     points: 1000,
   },
+  VOLUME_ROOKIE: {
+    name: "Volume Rookie",
+    description: "Processed $1,000 in payments",
+    icon: "💰",
+    color: "slate",
+    points: 100,
+  },
+  VOLUME_PRO: {
+    name: "Volume Pro",
+    description: "Processed $100,000 in payments",
+    icon: "💎",
+    color: "violet",
+    points: 500,
+  },
   STREAK_WEEKLY: {
     name: "Weekly Warrior",
     description: "7-day login streak",
@@ -110,14 +138,43 @@ export const ACHIEVEMENT_DEFINITIONS: Record<
     color: "red",
     points: 200,
   },
+  STREAK_MASTER: {
+    name: "Streak Master",
+    description: "Maintained a 30-day login streak",
+    icon: "🔥",
+    color: "red",
+    points: 300,
+  },
+  SECURITY_FIRST: {
+    name: "Security First",
+    description: "Enabled Passkey authentication",
+    icon: "🛡️",
+    color: "green",
+    points: 50,
+  },
+  ONBOARDING_COMPLETE: {
+    name: "Onboarding Complete",
+    description: "Completed all onboarding steps",
+    icon: "✅",
+    color: "teal",
+    points: 100,
+  },
   REFERRAL_CHAMPION: {
     name: "Referral Champion",
     description: "10+ successful referrals",
     icon: "👑",
     color: "purple",
-    points: 1000,
+    points: 750,
   },
 };
+
+/**
+ * Public launch cutoff. Users who signed up before this date are eligible
+ * for EARLY_ADOPTER.
+ */
+export const EARLY_ADOPTER_CUTOFF = new Date(
+  process.env.EARLY_ADOPTER_CUTOFF || "2026-07-01T00:00:00.000Z"
+);
 
 /**
  * Award an achievement to a user
@@ -329,6 +386,10 @@ export async function updateStreak(userId: string) {
     await awardAchievement(userId, "STREAK_WEEKLY", { streak: 7 });
   } else if (newStreak === 30) {
     await awardAchievement(userId, "STREAK_MONTHLY", { streak: 30 });
+    await awardAchievement(userId, "STREAK_MASTER", { streak: 30 });
+  } else if (newStreak > 30 && user.currentStreak < 30) {
+    // Backfill if we somehow skipped 30
+    await awardAchievement(userId, "STREAK_MASTER", { streak: newStreak });
   }
 
   // Award streak points
@@ -365,6 +426,9 @@ export async function checkPaymentAchievements(
           type: "inflow",
           status: { in: ["confirmed", "settled"] },
         },
+        include: {
+          invoice: { select: { createdAt: true } },
+        },
       },
     },
   });
@@ -383,25 +447,83 @@ export async function checkPaymentAchievements(
     if (result) awarded.push("FIRST_SALE");
   }
 
-  // Century Club
+  // Hundred / Thousand Club
+  if (txCount >= 1000) {
+    const result = await awardAchievement(userId, "THOUSAND_CLUB", { count: txCount });
+    if (result) awarded.push("THOUSAND_CLUB");
+  }
   if (txCount >= 100) {
-    const result = await awardAchievement(userId, "CENTURY_CLUB", { count: txCount });
-    if (result) awarded.push("CENTURY_CLUB");
+    const result = await awardAchievement(userId, "HUNDRED_CLUB", { count: txCount });
+    if (result) awarded.push("HUNDRED_CLUB");
+    // Legacy mirror for any existing analytics
+    await awardAchievement(userId, "CENTURY_CLUB", { count: txCount });
   }
 
-  // Volume milestones
-  if (totalVolume >= 500000) {
-    const result = await awardAchievement(userId, "VOLUME_DIAMOND", { volume: totalVolume });
-    if (result) awarded.push("VOLUME_DIAMOND");
-  } else if (totalVolume >= 100000) {
-    const result = await awardAchievement(userId, "VOLUME_GOLD", { volume: totalVolume });
-    if (result) awarded.push("VOLUME_GOLD");
-  } else if (totalVolume >= 25000) {
-    const result = await awardAchievement(userId, "VOLUME_SILVER", { volume: totalVolume });
-    if (result) awarded.push("VOLUME_SILVER");
-  } else if (totalVolume >= 5000) {
-    const result = await awardAchievement(userId, "VOLUME_BRONZE", { volume: totalVolume });
-    if (result) awarded.push("VOLUME_BRONZE");
+  // Volume milestones (new naming)
+  if (totalVolume >= 100_000) {
+    const result = await awardAchievement(userId, "VOLUME_PRO", { volume: totalVolume });
+    if (result) awarded.push("VOLUME_PRO");
+  }
+  if (totalVolume >= 1_000) {
+    const result = await awardAchievement(userId, "VOLUME_ROOKIE", { volume: totalVolume });
+    if (result) awarded.push("VOLUME_ROOKIE");
+  }
+  // Legacy volume tiers (kept for backward compat with existing dashboards)
+  if (totalVolume >= 500_000) {
+    await awardAchievement(userId, "VOLUME_DIAMOND", { volume: totalVolume });
+  } else if (totalVolume >= 100_000) {
+    await awardAchievement(userId, "VOLUME_GOLD", { volume: totalVolume });
+  } else if (totalVolume >= 25_000) {
+    await awardAchievement(userId, "VOLUME_SILVER", { volume: totalVolume });
+  } else if (totalVolume >= 5_000) {
+    await awardAchievement(userId, "VOLUME_BRONZE", { volume: totalVolume });
+  }
+
+  // Crypto Native — received 10+ distinct currencies
+  const distinctCurrencies = new Set(
+    transactions.map((tx) => tx.currency).filter(Boolean),
+  );
+  if (distinctCurrencies.size >= 10) {
+    const result = await awardAchievement(userId, "CRYPTO_NATIVE", {
+      tokenCount: distinctCurrencies.size,
+    });
+    if (result) awarded.push("CRYPTO_NATIVE");
+  }
+
+  // Speed Demon — most recent transaction paid within 1 hour of invoice creation
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  const speedDemonHit = transactions.some((tx) => {
+    if (!tx.invoice) return false;
+    const delta = tx.createdAt.getTime() - tx.invoice.createdAt.getTime();
+    return delta >= 0 && delta <= ONE_HOUR_MS;
+  });
+  if (speedDemonHit) {
+    const result = await awardAchievement(userId, "SPEED_DEMON");
+    if (result) awarded.push("SPEED_DEMON");
+  }
+
+  // Reliable Revenue — at least one inflow on each of the last 30 calendar days
+  if (transactions.length >= 30) {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const days = new Set<string>();
+    for (const tx of transactions) {
+      const d = new Date(tx.createdAt);
+      d.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor(
+        (startOfToday.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diffDays >= 0 && diffDays < 30) {
+        days.add(d.toISOString().slice(0, 10));
+      }
+    }
+    if (days.size >= 30) {
+      const result = await awardAchievement(userId, "RELIABLE_REVENUE", {
+        consecutiveDays: 30,
+      });
+      if (result) awarded.push("RELIABLE_REVENUE");
+    }
   }
 
   // === Phase 2: Update Goal Progress ===
@@ -437,6 +559,12 @@ import { POINTS_CONFIG } from "@/lib/constants/points";
  * Award points for completing onboarding
  */
 export async function awardOnboardingPoints(userId: string): Promise<number> {
+  // Idempotent — once per user
+  const existing = await db.pointTransaction.findFirst({
+    where: { userId, reason: "complete_onboarding" },
+  });
+  if (existing) return 0;
+
   const points = POINTS_CONFIG.COMPLETE_ONBOARDING;
   await addPoints(userId, points, "complete_onboarding", { action: "onboarding_completed" });
   return points;
@@ -574,5 +702,153 @@ export async function awardShareReceiptPoints(userId: string): Promise<number> {
   const points = POINTS_CONFIG.SHARE_RECEIPT;
   await addPoints(userId, points, "share_receipt", { action: "receipt_shared" });
   return points;
+}
+
+// ============================================================================
+// Direct badge awards (idempotent — no-op if user already has them)
+// ============================================================================
+
+/**
+ * SECURITY_FIRST — call right after a user successfully registers / adds a
+ * passkey. Awards the badge once per user.
+ */
+export async function awardSecurityFirstBadge(userId: string) {
+  return awardAchievement(userId, "SECURITY_FIRST");
+}
+
+/**
+ * ONBOARDING_COMPLETE — call when the user marks onboarding as complete.
+ */
+export async function awardOnboardingCompleteBadge(userId: string) {
+  return awardAchievement(userId, "ONBOARDING_COMPLETE");
+}
+
+/**
+ * EARLY_ADOPTER — award if the user's account was created before the public
+ * launch cutoff (see EARLY_ADOPTER_CUTOFF).
+ */
+export async function awardEarlyAdopterBadgeIfEligible(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { createdAt: true },
+  });
+  if (!user) return null;
+  if (user.createdAt.getTime() >= EARLY_ADOPTER_CUTOFF.getTime()) return null;
+  return awardAchievement(userId, "EARLY_ADOPTER", {
+    signedUpAt: user.createdAt.toISOString(),
+  });
+}
+
+/**
+ * TEAM_PLAYER — award the inviter once their business has 3+ team members.
+ * Counts both 'invited' and 'active' rows.
+ */
+export async function awardTeamPlayerBadgeIfEligible(
+  userId: string,
+  businessId: string,
+) {
+  const count = await db.teamMember.count({
+    where: { businessId, status: { in: ["invited", "active"] } },
+  });
+  if (count < 3) return null;
+  return awardAchievement(userId, "TEAM_PLAYER", { teamSize: count });
+}
+
+/**
+ * Find the canonical owning user for a business — earliest-created User row.
+ * Used by webhook-style entry points (e.g. /api/pay/record) which know the
+ * business but not the user.
+ */
+export async function getBusinessOwnerUserId(
+  businessId: string,
+): Promise<string | null> {
+  const owner = await db.user.findFirst({
+    where: { businessId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  return owner?.id ?? null;
+}
+
+/**
+ * Run every awardable check for a user in one pass. Safe to call on every
+ * dashboard load; awardAchievement is idempotent.
+ *
+ * Time-based / streak / passkey badges should already be awarded at their
+ * trigger sites. This pass picks up anything missed (e.g. retroactive
+ * EARLY_ADOPTER, payment milestones for legacy data, REFERRAL_CHAMPION).
+ */
+export async function evaluateAllAchievements(userId: string) {
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        businessId: true,
+        createdAt: true,
+        onboardingCompleted: true,
+        authenticators: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!user) return [];
+
+    const awarded: AchievementType[] = [];
+    const pushIf = (a: { id: string } | null, type: AchievementType) => {
+      if (a) awarded.push(type);
+    };
+
+    // EARLY_ADOPTER
+    if (user.createdAt.getTime() < EARLY_ADOPTER_CUTOFF.getTime()) {
+      pushIf(
+        await awardAchievement(userId, "EARLY_ADOPTER", {
+          signedUpAt: user.createdAt.toISOString(),
+        }),
+        "EARLY_ADOPTER",
+      );
+    }
+
+    // SECURITY_FIRST — has at least one passkey
+    if (user.authenticators.length > 0) {
+      pushIf(await awardAchievement(userId, "SECURITY_FIRST"), "SECURITY_FIRST");
+    }
+
+    // ONBOARDING_COMPLETE
+    if (user.onboardingCompleted) {
+      pushIf(
+        await awardAchievement(userId, "ONBOARDING_COMPLETE"),
+        "ONBOARDING_COMPLETE",
+      );
+    }
+
+    // Payment-derived milestones
+    if (user.businessId) {
+      const paid = await checkPaymentAchievements(userId, user.businessId);
+      awarded.push(...paid);
+
+      // TEAM_PLAYER
+      pushIf(
+        await awardTeamPlayerBadgeIfEligible(userId, user.businessId),
+        "TEAM_PLAYER",
+      );
+    }
+
+    // REFERRAL_CHAMPION — 10+ converted referrals
+    const referralCount = await db.referral.count({
+      where: { referrerId: userId, status: "converted" },
+    });
+    if (referralCount >= 10) {
+      pushIf(
+        await awardAchievement(userId, "REFERRAL_CHAMPION", {
+          referrals: referralCount,
+        }),
+        "REFERRAL_CHAMPION",
+      );
+    }
+
+    return awarded;
+  } catch (error) {
+    console.error("[ACHIEVEMENT] evaluateAllAchievements failed:", error);
+    return [];
+  }
 }
 
