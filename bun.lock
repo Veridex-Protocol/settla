@@ -28,7 +28,7 @@
         "@simplewebauthn/server": "^13.2.2",
         "@tanstack/react-query": "^5.90.16",
         "@types/qrcode": "^1.5.6",
-        "@veridex/sdk": "^1.1.2",
+        "@veridex/sdk": "^1.1.3",
         "@walletconnect/ethereum-provider": "^2.17.0",
         "axios": "^1.7.9",
         "canvas-confetti": "^1.9.4",
@@ -809,7 +809,7 @@
 
     "@unrs/resolver-binding-win32-x64-msvc": ["@unrs/resolver-binding-win32-x64-msvc@1.11.1", "", { "os": "win32", "cpu": "x64" }, "sha512-lrW200hZdbfRtztbygyaq/6jP6AKE8qQN2KvPcJ+x7wiD038YtnYtZ82IMNJ69GJibV7bwL3y9FgK+5w/pYt6g=="],
 
-    "@veridex/sdk": ["@veridex/sdk@1.1.2", "", { "dependencies": { "@aptos-labs/ts-sdk": "^6.0.0", "@mysten/bcs": "1.9.2", "@mysten/sui": "^1.0.0", "@noble/curves": "^1.9.0", "@noble/hashes": "^1.5.0", "@simplewebauthn/browser": "^9.0.1", "@solana/spl-token": "^0.4.6", "@solana/web3.js": "^1.95.4", "@wormhole-foundation/sdk": "^0.10.0", "@wormhole-foundation/wormhole-query-sdk": "^0.0.14", "axios": "^1.7.9", "ethers": "^6.11.1", "js-sha3": "^0.9.3", "starknet": "^6.12.0" } }, "sha512-WN5Bu1ADk1JR9CAEdwWbdA76Y4zgW/71ySj9NZ0NSGPbBK/gpCpMJqAxoNUc9vk1HvUo7Qi9nfTuogLDzhQJRQ=="],
+    "@veridex/sdk": ["@veridex/sdk@1.1.3", "", { "dependencies": { "@aptos-labs/ts-sdk": "^6.0.0", "@mysten/bcs": "1.9.2", "@mysten/sui": "^1.0.0", "@noble/curves": "^1.9.0", "@noble/hashes": "^1.5.0", "@simplewebauthn/browser": "^9.0.1", "@solana/spl-token": "^0.4.6", "@solana/web3.js": "^1.95.4", "@wormhole-foundation/sdk": "^0.10.0", "@wormhole-foundation/wormhole-query-sdk": "^0.0.14", "axios": "^1.7.9", "ethers": "^6.11.1", "js-sha3": "^0.9.3", "starknet": "^6.12.0" } }, "sha512-z8PbYU8l49A+1wPjjVCJi0+UjZRKmyD9uAgLyQdI7Yj1d6GTGjuy/4THLdluLze4/99/fP7jTSCxGMzQ8C3Khg=="],
 
     "@wallet-standard/base": ["@wallet-standard/base@1.1.0", "", {}, "sha512-DJDQhjKmSNVLKWItoKThJS+CsJQjR9AOBOirBVT1F9YpRyC9oYHE+ZnSf8y8bxUphtKqdQMPVQ2mHohYdRvDVQ=="],
 

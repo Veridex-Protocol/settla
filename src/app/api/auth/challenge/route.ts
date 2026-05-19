@@ -1,78 +1,23 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
-
-/**
- * VDX-AUTH-004: Server-side WebAuthn challenge generation for Sera dashboard login.
- *
- * Challenges are stored in-memory with a 5-minute TTL.
- * Multi-instance production should replace with Redis or DB-backed store.
- */
-
-interface ChallengeEntry {
-  challenge: Buffer;
-  createdAt: number;
-}
-
-// Attach to globalThis so the Map survives Next.js webpack route-bundle
-// isolation in dev (each route handler can otherwise see its own copy) and
-// HMR re-evaluation of this module. For multi-instance deployments swap for
-// Redis or a DB-backed store.
-const GLOBAL_KEY = Symbol.for('settla.auth.webauthnChallenges');
-type Global = typeof globalThis & { [GLOBAL_KEY]?: Map<string, ChallengeEntry> };
-const g = globalThis as Global;
-const challenges: Map<string, ChallengeEntry> =
-  g[GLOBAL_KEY] ?? new Map<string, ChallengeEntry>();
-g[GLOBAL_KEY] = challenges;
-
-const CHALLENGE_TTL_MS = 5 * 60 * 1000;
-const CHALLENGE_BYTES = 32;
-const MAX_CHALLENGES = 10_000;
-
-function sweepExpired(): void {
-  const now = Date.now();
-  for (const [id, entry] of challenges) {
-    if (now - entry.createdAt > CHALLENGE_TTL_MS) {
-      challenges.delete(id);
-    }
-  }
-}
+import { issueChallenge } from '@/lib/webauthn-challenges';
 
 /**
  * GET /api/auth/challenge
- * Returns a fresh challenge for WebAuthn authentication.
+ * Returns a fresh WebAuthn challenge for Sera dashboard login.
+ *
+ * The challenge store and `consumeChallenge` helper live in
+ * `@/lib/webauthn-challenges` — Next.js 16 forbids non-handler exports from
+ * route files (only GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD plus a few config
+ * keys are allowed).
  */
 export async function GET() {
-  sweepExpired();
-
-  if (challenges.size >= MAX_CHALLENGES) {
+  const issued = issueChallenge();
+  if (!issued) {
     return NextResponse.json({ error: 'Server busy' }, { status: 503 });
   }
-
-  const challenge = crypto.randomBytes(CHALLENGE_BYTES);
-  const challengeId = crypto.randomUUID();
-
-  challenges.set(challengeId, { challenge, createdAt: Date.now() });
-
-  // Return as base64url for the client to decode into ArrayBuffer
-  const challengeB64 = challenge
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  return NextResponse.json({ challengeId, challenge: challengeB64 });
+  return NextResponse.json({
+    challengeId: issued.challengeId,
+    challenge: issued.challengeB64,
+  });
 }
 
-/** Consume a challenge by ID. Returns the raw Buffer or null if expired/missing. */
-export function consumeChallenge(challengeId: string): Buffer | null {
-  const entry = challenges.get(challengeId);
-  if (!entry) return null;
-
-  challenges.delete(challengeId);
-
-  if (Date.now() - entry.createdAt > CHALLENGE_TTL_MS) {
-    return null;
-  }
-
-  return entry.challenge;
-}

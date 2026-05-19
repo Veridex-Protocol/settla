@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
 import { applyReferralCode } from "@/lib/services/referral-service";
-import { consumeChallenge } from "@/app/api/auth/challenge/route";
+import { consumeChallenge } from "@/lib/webauthn-challenges";
 import { consumeRegistrationToken } from "@/lib/auth/registration-tokens";
 
 // Extend the session user type
