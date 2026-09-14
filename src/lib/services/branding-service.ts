@@ -35,19 +35,19 @@ export interface InvoiceBrandingConfig {
   logoUrl?: string;
   logoPosition?: 'left' | 'center' | 'right';
   showSeraBranding?: boolean;  // Whether to show "Powered by Settla"
-  
+
   // Header customization
   headerStyle?: 'default' | 'minimal' | 'bold' | 'gradient';
   headerBackgroundColor?: string;
   headerTextColor?: string;
-  
+
   // Typography
   fontFamily?: 'helvetica' | 'times' | 'courier';  // jsPDF supported fonts
-  
+
   // Footer customization
   customFooterText?: string;
   showPaymentInstructions?: boolean;
-  
+
   // Layout
   compactMode?: boolean;
   showQRCode?: boolean;
@@ -56,12 +56,12 @@ export interface InvoiceBrandingConfig {
 export interface ReceiptBrandingConfig extends InvoiceBrandingConfig {
   // Gold+ features
   backgroundStyle?: 'solid' | 'gradient' | 'pattern' | 'ai-generated';
-  
+
   // Diamond features - AI backgrounds
   aiBackgroundPrompt?: string;
   aiBackgroundUrl?: string;
   aiBackgroundTheme?: 'professional' | 'creative' | 'minimal' | 'luxury';
-  
+
   // Receipt-specific
   showTransactionQR?: boolean;
   showBlockExplorerLink?: boolean;
@@ -223,14 +223,14 @@ export async function getInvoiceBranding(businessId: string): Promise<InvoiceBra
 
   // Merge custom branding with defaults
   const customBranding = (business.invoiceBranding as InvoiceBrandingConfig) || {};
-  
+
   return {
     ...DEFAULT_INVOICE_BRANDING,
     ...customBranding,
     logoUrl: customBranding.logoUrl || business.logoUrl || undefined,
     // Enforce tier restrictions
-    showSeraBranding: permissions.canHideSeraBranding 
-      ? (customBranding.showSeraBranding ?? true) 
+    showSeraBranding: permissions.canHideSeraBranding
+      ? (customBranding.showSeraBranding ?? true)
       : true,
   };
 }
@@ -270,7 +270,7 @@ export async function getReceiptBranding(businessId: string): Promise<ReceiptBra
   // Merge custom branding with defaults
   const customBranding = (business.receiptBranding as ReceiptBrandingConfig) || {};
   const invoiceBranding = (business.invoiceBranding as InvoiceBrandingConfig) || {};
-  
+
   // Inherit from invoice branding where not specified
   const mergedBranding: ReceiptBrandingConfig = {
     ...DEFAULT_RECEIPT_BRANDING,
@@ -278,14 +278,14 @@ export async function getReceiptBranding(businessId: string): Promise<ReceiptBra
     ...customBranding,
     logoUrl: customBranding.logoUrl || invoiceBranding.logoUrl || business.logoUrl || undefined,
     // Enforce tier restrictions
-    showSeraBranding: permissions.canHideSeraBranding 
-      ? (customBranding.showSeraBranding ?? true) 
+    showSeraBranding: permissions.canHideSeraBranding
+      ? (customBranding.showSeraBranding ?? true)
       : true,
-    backgroundStyle: permissions.canUseAIBackground 
+    backgroundStyle: permissions.canUseAIBackground
       ? (customBranding.backgroundStyle || 'solid')
       : (customBranding.backgroundStyle === 'ai-generated' ? 'solid' : customBranding.backgroundStyle),
-    certificateStyle: permissions.canUseCertificateStyle 
-      ? (customBranding.certificateStyle ?? false) 
+    certificateStyle: permissions.canUseCertificateStyle
+      ? (customBranding.certificateStyle ?? false)
       : false,
   };
 
@@ -313,17 +313,17 @@ export async function updateInvoiceBranding(
   const permissions = getBrandingPermissions(user.merchantTier);
 
   if (!permissions.canCustomizeInvoice) {
-    return { 
-      success: false, 
-      error: 'Invoice customization requires Silver tier or higher. Upgrade to unlock this feature!' 
+    return {
+      success: false,
+      error: 'Invoice customization requires Silver tier or higher. Upgrade to unlock this feature!'
     };
   }
 
   // Sanitize branding based on permissions
   const sanitizedBranding: Partial<InvoiceBrandingConfig> = {
     ...branding,
-    showSeraBranding: permissions.canHideSeraBranding 
-      ? branding.showSeraBranding 
+    showSeraBranding: permissions.canHideSeraBranding
+      ? branding.showSeraBranding
       : true,
   };
 
@@ -363,23 +363,23 @@ export async function updateReceiptBranding(
   const permissions = getBrandingPermissions(user.merchantTier);
 
   if (!permissions.canCustomizeReceipt) {
-    return { 
-      success: false, 
-      error: 'Receipt customization requires Gold tier or higher. Upgrade to unlock this feature!' 
+    return {
+      success: false,
+      error: 'Receipt customization requires Gold tier or higher. Upgrade to unlock this feature!'
     };
   }
 
   // Sanitize branding based on permissions
   const sanitizedBranding: Partial<ReceiptBrandingConfig> = {
     ...branding,
-    showSeraBranding: permissions.canHideSeraBranding 
-      ? branding.showSeraBranding 
+    showSeraBranding: permissions.canHideSeraBranding
+      ? branding.showSeraBranding
       : true,
-    backgroundStyle: permissions.canUseAIBackground 
-      ? branding.backgroundStyle 
+    backgroundStyle: permissions.canUseAIBackground
+      ? branding.backgroundStyle
       : (branding.backgroundStyle === 'ai-generated' ? 'solid' : branding.backgroundStyle),
-    certificateStyle: permissions.canUseCertificateStyle 
-      ? branding.certificateStyle 
+    certificateStyle: permissions.canUseCertificateStyle
+      ? branding.certificateStyle
       : false,
   };
 
@@ -426,9 +426,9 @@ export async function generateAIReceiptBackground(
   const permissions = getBrandingPermissions(user.merchantTier);
 
   if (!permissions.canUseAIBackground) {
-    return { 
-      success: false, 
-      error: 'AI backgrounds require Diamond tier. Upgrade to unlock this premium feature!' 
+    return {
+      success: false,
+      error: 'AI backgrounds require Diamond tier. Upgrade to unlock this premium feature!'
     };
   }
 
@@ -450,7 +450,7 @@ export async function generateAIReceiptBackground(
       luxury: 'Elegant, gold accents, premium feel, sophisticated patterns, dark tones',
     };
 
-    const prompt = options.customPrompt || 
+    const prompt = options.customPrompt ||
       `Create a beautiful, subtle background design for a payment receipt. 
       Theme: ${themeDescriptions[theme]}
       Business: ${businessName}
@@ -464,7 +464,7 @@ export async function generateAIReceiptBackground(
       - Resolution suitable for A4 document (1240 x 1754 pixels)`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
         responseModalities: ['image', 'text'],
